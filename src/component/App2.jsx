@@ -53,7 +53,7 @@ const App2= React.createClass({
     this.fetch(params);
   },
   fetch(params = {}) {
-   
+
     this.setState({ loading: true });
     $.ajax({
       url: 'http://www.lwqiu.com/test/ant/data/data.php',
@@ -83,7 +83,7 @@ const App2= React.createClass({
         pagination={this.state.pagination}
         loading={this.state.loading}
         onChange={this.handleTableChange} />
-      </div>  
+      </div>
     );
   }
 });

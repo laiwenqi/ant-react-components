@@ -1,0 +1,37 @@
+#header-wrapper {
+  height: 60px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  background-color: #38bbe1;
+  padding: 0 20px;
+}
+#sidebar-wrapper {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  width: 240px;
+  bottom: 0;
+  background: #f2f2f2;
+  padding: 0;
+  z-index: 2;
+  transition: all cubic-bezier(.645,.045,.355,1) 0.4s;
+}
+#content-wrapper {
+  min-height: 100%;
+  padding: 60px 20px 0 230px;
+  transition: padding-left cubic-bezier(.645,.045,.355,1) 0.4s;
+  position: relative;
+  z-index: 1;
+}
+
+
+#main-body-content {
+  margin-top: 5px;
+  margin-left: 15px;
+}
+.mainbody-menu-item{
+  width:100%;
+}

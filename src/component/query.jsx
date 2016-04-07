@@ -63,11 +63,11 @@ let Query = React.createClass({
     showfilter(){
         if(this.state.show){
               return 'filter-layer';
-         }    
+         }
      },
 	render() {
 		let formData = this.state.formData;
-  
+
 		let formEntity = [];
 		let children;
 		if(!this.props.children.length){
@@ -126,7 +126,7 @@ let Query = React.createClass({
 
  const data=[{
       "key":0,
-      "name":"test@example.com"    
+      "name":"test@example.com"
     },{
       "key":1,
       "name":"test@example.com"
@@ -220,7 +220,7 @@ let fff= React.createClass({
     return(
     <div>
      <Query>
-        <Input name="name" placeholder="请输入搜索名称" label="搜索名称：" />   
+        <Input name="name" placeholder="请输入搜索名称" label="搜索名称：" />
     </Query>
     <Table dataSource={dataSource} columns={columns} size='middle'/>
     </div>

@@ -6,7 +6,7 @@ import { InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popove
 import classNames from 'classnames';
 import './App.less';
 import fff from './query';
-const TabPane = Tabs.TabPane; 
+const TabPane = Tabs.TabPane;
 const InputGroup = Input.Group;
 
 
@@ -135,13 +135,13 @@ const sousuo = (
           onFocus={this.handleFocusBlur} onBlur={this.handleFocusBlur} />
           <div className="ant-input-group-wrap">
             <Button className={btnCls} size={this.props.size} onClick={this.handleSearch}>
-              <Icon type="search" />       
+              <Icon type="search" />
             </Button>
           </div>
           <div className="ant-input-group-wrap">
                 <Popover placement="bottom" overlay={sousuo} trigger="click">
                     <a >高级搜索&nbsp;&nbsp;<Icon type="down" /></a>
-               </Popover>           
+               </Popover>
           </div>
         </InputGroup>
     );
@@ -197,11 +197,11 @@ getDefaultProps(){
           编辑
         </a>
         <span className="ant-divider" ></span>
-        
+
         <Popconfirm title="确定要删除这个吗？" onConfirm={confirm} onCancel={cancel}>
              <a type="primary" >删除</a>
         </Popconfirm>
-        
+
         <Modal ref="modal"
           visible={this.state.visible}
           title={this.props.name} onOk={this.handleOk} onCancel={this.handleCancel}
@@ -216,9 +216,9 @@ getDefaultProps(){
           年龄：<InputNumber min={1} max={100}  defaultValue={this.props.age} /><br/><br/>
           地址：<Input  defaultValue={this.props.address} style={{ width: 200 }}/>
         </Modal>
-        
-         
-  
+
+
+
       </div>
     );
   }
@@ -230,7 +230,7 @@ const onClick = function (e) {
   console.log(e);
   alert(columns);
 };
- 
+
 const columns = [{
   title: '姓名',
   dataIndex: 'name',
@@ -251,11 +251,11 @@ const columns = [{
 },{
     title: '操作',
     key: 'operation',
-    render(text, row, index) {    
+    render(text, row, index) {
         return (
-            <Test 
+            <Test
                 address={row.address}
-                name={row.name}   
+                name={row.name}
                 age={row.age}
                 />
         )  ;
@@ -317,13 +317,13 @@ const App= React.createClass({
   render() {
     return (
     <div>
-        <SearchInput className="foo" placeholder="搜索" style={{ width: 200 }} woyao={this.dianji} />  
+        <SearchInput className="foo" placeholder="搜索" style={{ width: 200 }} woyao={this.dianji} />
             <br/>
         <Table columns={columns}
             dataSource={this.state.data}
             pagination={this.state.pagination}
             loading={this.state.loading}
-            onChange={this.handleTableChange} 
+            onChange={this.handleTableChange}
             size="middle"
             />
    </div>
