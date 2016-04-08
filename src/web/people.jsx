@@ -1,90 +1,97 @@
-﻿import React from 'react';
-import  { Table } from 'antd';
+import React from 'react';
 import reqwest from 'reqwest';
-import { Modal } from 'antd';
-import { InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
+import { Row, Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
 import classNames from 'classnames';
-import './App.less';
-import fff from './query';
-const TabPane = Tabs.TabPane;
+import './people.less';
+const FormItem = Form.Item;
 const InputGroup = Input.Group;
 
-
-const Demo_TABS = React.createClass({
+        /*<SearchInput className="foo" placeholder="搜索" style={{ width: 200 }} handleSearchClick={this.handleSearchClick}></SearchInput>*/
+let Demo = React.createClass({
   getInitialState() {
-    this.newTabIndex = 0;
-    const panes = [
-      <TabPane tab="页签1" key="1"><App/></TabPane>
-      ];
+    console.log(this.props.ss);
     return {
-      activeKey: panes[0].key,
-      panes,
+      ss:this.props.ss
     };
   },
-  onChange(activeKey) {
-    this.setState({ activeKey });
+  handleSubmit(e) {
+    e.preventDefault();
+    this.props.search(this.props.form.getFieldsValue().userName);
+    console.log('收到表单值：', this.props.form.getFieldsValue());
   },
-  onEdit(targetKey, action) {
-    this[action](targetKey);
-  },
-  add() {
-    const panes = this.state.panes;
-    const activeKey = `newTab${this.newTabIndex++}`;
-    panes.push(<TabPane tab="新建页签" key={activeKey}>新页面</TabPane>);
-    this.setState({ panes, activeKey });
-  },
-  remove(targetKey) {
-    let activeKey = this.state.activeKey;
-    let lastIndex;
-    this.state.panes.forEach((pane, i) => {
-      if (pane.key === targetKey) {
-        lastIndex = i - 1;
-      }
-    });
-    const panes = this.state.panes.filter(pane => pane.key !== targetKey);
-    if (lastIndex >= 0 && activeKey === targetKey) {
-      activeKey = panes[lastIndex].key;
-    }
-    this.setState({ panes, activeKey });
-  },
+
   render() {
+const { getFieldProps } = this.props.form;
     return (
-      <Tabs onChange={this.onChange} activeKey={this.state.activeKey}
-        type="editable-card" onEdit={this.onEdit}>
-        {this.state.panes}
-      </Tabs>
+      <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
+    <Row>
+      <Col span="8">
+        <FormItem
+          label="搜索名称："
+          labelCol={{ span: 10 }}
+          wrapperCol={{ span: 14 }}>
+          <Input placeholder="请输入搜索名称"   {...getFieldProps('userName')}/>
+        </FormItem>
+      </Col>
+    </Row>
+    <Row>
+      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
+        <Button type="primary" htmlType="submit">搜索</Button>
+        <Button>清除条件</Button>
+      </Col>
+    </Row>
+  </Form>
     );
   }
 });
 
+Demo = Form.create()(Demo);
 
+const filter_content = (
+  <div >
+    <p>姓名：<Input id="defaultInput" placeholder="名字" /></p><br/>
+    <p>地址：<Input id="defaultInput" placeholder="地址" /></p><br/>
+  </div>
+);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+const columns = [{
+  title: '姓名',
+  dataIndex: 'name',
+  filters: [{
+    text: '姓李的',
+    value: '李'
+  }, {
+    text: '姓胡的',
+    value: '胡'
+  }]
+}, {
+  title: '年龄',
+  dataIndex: 'age',
+  sorter: true
+}, {
+  title: '住址',
+  dataIndex: 'address'
+},{
+  title: '操作',
+  key: 'operation',
+  render(text, row, index) {
+    return (
+      <Test address={row.address}
+            name={row.name}
+            age={row.age}
+      />
+      );
+    }
+}];
 
 const SearchInput = React.createClass({
   getInitialState() {
     return {
         onClick:'',
-        value: 'hello',
-        name:'',
+        value:'',
         focus: false,
+        name:'',
+        address:''
     };
   },
   handleChange(e) {
@@ -94,7 +101,12 @@ const SearchInput = React.createClass({
   },
   handleInputChange(e) {
     this.setState({
-      value: e.target.value,
+      name: e.target.value,
+    });
+  },
+  handleInputChange2(e) {
+    this.setState({
+      address: e.target.value,
     });
   },
   handleFocusBlur(e) {
@@ -107,9 +119,10 @@ const SearchInput = React.createClass({
       this.props.onSearch();
     }
   },
-  handleShow2(){
-      console.log(this.state.value);
-      this.props.woyao(11);
+  handleShow2(e){
+    e.preventDefault();
+   console.log('收到表单值：', this.props.form.getFieldsValue());
+      this.props.handleSearchClick(11);
   },
   render() {
     var value=this.state.value;
@@ -121,12 +134,24 @@ const SearchInput = React.createClass({
       'ant-search-input': true,
       'ant-search-input-focus': this.state.focus,
     });
-
-const sousuo = (
+ const { getFieldProps } = this.props.form;
+const GaoJiSouSuo = (
+  <div>
     <div >
-    <p>姓名：<Input id="defaultInput" placeholder="名字"  value={value} onChange={this.handleChange}/></p><br/>
-    <p>地址：<Input id="defaultInput" placeholder="地址" /></p><br/>
-       <Button  type="ghost" size="small"  onClick={this.handleShow2}>搜索</Button>&nbsp;&nbsp;&nbsp;&nbsp;<Button  type="ghost" size="small" >清空</Button>
+          <Form inline onSubmit={this.handleShow2}>
+          <FormItem
+            label="账户：">
+            <Input placeholder="请输入账户名"
+              {...getFieldProps('userName')} />
+          </FormItem>
+          <FormItem
+            label="密码：">
+            <Input type="password" placeholder="请输入密码"
+              {...getFieldProps('password')} />
+          </FormItem>
+          <Button type="ghost" size="small"  onClick={this.handleShow2}>搜索</Button>&nbsp;&nbsp;&nbsp;&nbsp;<Button type="ghost" size="small" >清空</Button>
+    </Form>
+</div>
   </div>
 );
     return (
@@ -139,7 +164,7 @@ const sousuo = (
             </Button>
           </div>
           <div className="ant-input-group-wrap">
-                <Popover placement="bottom" overlay={sousuo} trigger="click">
+                <Popover placement="bottom" overlay={GaoJiSouSuo} trigger="click">
                     <a >高级搜索&nbsp;&nbsp;<Icon type="down" /></a>
                </Popover>
           </div>
@@ -231,45 +256,22 @@ const onClick = function (e) {
   alert(columns);
 };
 
-const columns = [{
-  title: '姓名',
-  dataIndex: 'name',
-  filters: [{
-    text: '姓李的',
-    value: '李'
-  }, {
-    text: '姓胡的',
-    value: '胡'
-  }]
-}, {
-  title: '年龄',
-  dataIndex: 'age',
-  sorter: true
-}, {
-  title: '住址',
-  dataIndex: 'address'
-},{
-    title: '操作',
-    key: 'operation',
-    render(text, row, index) {
-        return (
-            <Test
-                address={row.address}
-                name={row.name}
-                age={row.age}
-                />
-        )  ;
-    }
-}];
 
 
-const App= React.createClass({
+
+
+const People= React.createClass({
    getInitialState() {
     return {
+      url: 'http://www.lwqiu.com/test/ant/data/data.php',
       data: [],
       pagination: {},
       loading: false,
+      filterClassName:"filter-content-hidden filter-content-layer"
     };
+  },
+  handleSearchClick(){
+
   },
   handleTableChange(pagination, filters, sorter) {
     const pager = this.state.pagination;
@@ -290,10 +292,9 @@ const App= React.createClass({
     }
   },
   fetch(params = {}) {
- //   console.log('请求参数：', params);
     this.setState({ loading: true });
     $.ajax({
-      url: 'http://www.lwqiu.com/test/ant/data/data.php',
+      url:this.state.url,
       method: 'get',
       data: '',
       dataType: "json",
@@ -311,24 +312,41 @@ const App= React.createClass({
   componentDidMount() {
     this.fetch();
   },
- dianji(value) {
-     console.log(value);
+  search(a){
+    console.log(a);
+  },
+  filterDisplay(){
+    /*展示还没加上动画*/
+    if(this.state.filterClassName=="filter-content-hidden filter-content-layer"){
+      this.setState({
+        filterClassName:"filter-content-show filter-content-layer"
+      });
+    }else{
+      this.setState({
+        filterClassName:"filter-content-hidden filter-content-layer"
+      });
+    }
   },
   render() {
     return (
     <div>
-        <SearchInput className="foo" placeholder="搜索" style={{ width: 200 }} woyao={this.dianji} />
-            <br/>
+        <Button type="primary" htmlType="submit" onClick={this.filterDisplay} >高级搜索</Button>
+        <div className={this.state.filterClassName} >
+          <Demo search={this.fetch}/>
+        </div>
+        <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}
             pagination={this.state.pagination}
             loading={this.state.loading}
             onChange={this.handleTableChange}
             size="middle"
-            />
+        />
    </div>
     );
   }
 });
 
-export default Demo_TABS;
+
+
+export default People;
