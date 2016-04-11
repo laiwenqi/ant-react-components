@@ -20,9 +20,9 @@ const MAINBODY_HEADER= React.createClass({
 const MAINBODY_CONTENT= React.createClass({
   getInitialState() {
     const tabs_data =[{
-      'title':'首页',
+      'title':'人员管理',
       'key':1,
-      'content':'people'
+      'content':'employee'
     }];
     const panes = tabs_data.map(function(item){
       return (<TabPane tab={item.title} key={item.key}><TabsContent component={item.content}/></TabPane>);
@@ -34,30 +34,27 @@ const MAINBODY_CONTENT= React.createClass({
         openKeys: [],
         menu_data: [{
           'key': 'sub1',
-          'title': '菜单1',
-          'icon': 'appstore',
+          'title': '系统管理',
+          'icon': 'laptop',
           'contain': [{
-            'name': '表格1',
-            'content':'people',
+            'name': '人员管理',
+            'content':'employee',
             'key': '1'
           },{
-            'name': '表格2',
-            'content':'people',
+            'name': '终端管理',
+            'content':'employee',
             'key': '2'
           }]
         },{
           'key': 'sub2',
-          'title': '菜单2',
-          'icon': 'mail',
-          'contain': [{
-            'name': '表格3',
-            'content':'people',
-            'key': '3'
-          },{
-            'name': '表格4',
-            'content':'people',
-            'key': '4'
-          }]
+          'title': '业务操作',
+          'icon': 'book',
+          'contain': []
+        },{
+          'key': 'sub3',
+          'title': '系统运维',
+          'icon': 'hdd',
+          'contain': []
         }],
         panes,
       }

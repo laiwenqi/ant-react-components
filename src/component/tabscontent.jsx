@@ -1,9 +1,9 @@
 import React from 'react';
 /*import所有用到的页面*/
- import People from '../web/people.jsx';
+ import Employee from '../web/employee.jsx';
 
 
-
+//下面根据标签页面显示内容
 const TabsContent= React.createClass({
   getInitialState() {
     return{
@@ -15,9 +15,9 @@ const TabsContent= React.createClass({
   },
   render() {
     switch(this.state.component){
-      case "people":
+      case "employee":
         return (
-          <People/>
+          <Employee/>
         )
       break;
     }
