@@ -1,11 +1,44 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
+import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
 import classNames from 'classnames';
 import './employee.less';
 const FormItem = Form.Item;
 const InputGroup = Input.Group;
+const confirm = Modal.confirm;
+
+//对象合并
+const objExtend=function(o,n){
+  for(let tem in n){
+    if(tem=='type'){break;}
+    o[tem]=n[tem];
+  }
+  return o;
+};
+
+//全局提示框
+function MessageTip(msg,time,type) {
+  time=time||2;
+  type=type||'success';
+  switch(type){
+    case 'success':
+      message.success(msg,time);
+    break;
+    case 'error':
+      message.error(msg,time);
+    break;
+    case 'info':
+      message.info(msg,time);
+    break;
+    case 'loading':
+      message.loading(msg,time);
+    break;
+  }
+}
+
+
+
 
 
 //这里是默认简易的搜索
@@ -58,6 +91,9 @@ let SearchInput = React.createClass({
 });
 
 
+
+
+
 //这里是高级的搜索
 let FilterLayer = React.createClass({
   getInitialState() {
@@ -85,7 +121,7 @@ const { getFieldProps } = this.props.form;
           label="输入搜索地址："
           labelCol={{ span: 10 }}
           wrapperCol={{ span: 14 }}>
-          <Input placeholder="请输入搜索地址" {...getFieldProps('address', { initialValue: 3 })}/>
+          <Input placeholder="请输入搜索地址" {...getFieldProps('I_EMPL_ADDRESS', { initialValue: ''})}/>
         </FormItem>
       </Col>
     </Row>
@@ -109,8 +145,8 @@ const columns = [{
   dataIndex: 'EMPL_NAME'
 },{
   title: '联系电话',
-  dataIndex: 'EMPL_MOBILE',
-  sorter: true
+  dataIndex: 'EMPL_MOBILE'
+  /* sorter: true */
 },{
   title: '住址',
   dataIndex: 'EMPL_ADDRESS'
@@ -120,9 +156,9 @@ const columns = [{
   render(text, row, index) {
     return (
       <Edit id={row.EMPL_ID}
-            address={row.EMPL_ADDRESS}
-            name={row.EMPL_NAME}
-            mobile={row.EMPL_MOBILE}
+            I_EMPL_ADDRESS={row.EMPL_ADDRESS}
+            I_EMPL_NAME={row.EMPL_NAME}
+            I_EMPL_MOBILE={row.EMPL_MOBILE}
       />
       );
     }
@@ -130,14 +166,59 @@ const columns = [{
 
 
 
-
-function confirm() {
-  message.success('成功删除');
-}
-
-function cancel() {
-  message.error('点击了取消');
-}
+//点击操作编辑 弹窗内容
+let ModalContent =React.createClass({
+  getInitialState() {
+    return {
+      contentV:this.props.contentValue
+    }
+  },
+  componentWillReceiveProps(){
+    //每次打开还原表单的值
+    if(this.props.visible==false){
+      this.props.form.resetFields();
+    }
+  },
+  contentValueChange(){
+    //这里是校验表单输入和保存表单输入，必须通过校验才保存
+    this.props.contentValueChange(objExtend({id:this.state.contentV.id},this.props.form.getFieldsValue()))
+  },
+  render() {
+     const { getFieldProps } = this.props.form;
+     return (
+       <Form horizontal>
+       <FormItem
+         label="姓名："
+         labelCol={{ span: 5 }}
+         wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入姓名" {...getFieldProps('I_EMPL_NAME',{
+            rules: [{validator: this.contentValueChange}],
+            initialValue: this.state.contentV.I_EMPL_NAME
+        })}/>
+        </FormItem>
+        <FormItem
+          label="电话："
+          labelCol={{ span: 5 }}
+          wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入电话" {...getFieldProps('I_EMPL_MOBILE',{
+            rules: [{validator: this.contentValueChange}],
+            initialValue: this.state.contentV.I_EMPL_MOBILE
+        })}/>
+       </FormItem>
+       <FormItem
+         label="地址："
+         labelCol={{ span: 5 }}
+         wrapperCol={{ span: 12 }}>
+       <Input placeholder="请输入地址" {...getFieldProps('I_EMPL_ADDRESS',{
+           rules: [{validator: this.contentValueChange}],
+           initialValue: this.state.contentV.I_EMPL_ADDRESS
+       })}/>
+      </FormItem>
+       </Form>
+     )
+   }
+});
+ModalContent = Form.create()(ModalContent);
 
 
 
@@ -146,14 +227,15 @@ const Edit = React.createClass({
   getInitialState() {
     return {
       loading: false,
-      visible: false
+      visible: false,
+      contentValue:this.props
     };
   },
-getDefaultProps(){
+ getDefaultProps(){
     return {
-      name:"",
-      address:"",
-      mobile:"",
+      I_EMPL_NAME:"",
+      I_EMPL_ADDRESS:"",
+      I_EMPL_MOBILE:"",
       id:''
     };
  },
@@ -162,35 +244,74 @@ getDefaultProps(){
       visible: true
     });
   },
-  bsubmit() {
-    let params=this.props;
+  getContentValue(data){
+    this.state.contentValue=data;
+  },
+  handleCancel() {
+    this.setState({
+      visible: false
+    });
+  },
+  handleSubmit() {
+    /*判断弹窗表单值是否有改变，没有就不包存修改*/
+    /*！！两个对象长度不等会导致不正确判断*/
+    let aProps = Object.getOwnPropertyNames(this.state.contentValue);
+    let bProps = Object.getOwnPropertyNames(this.props);
+    let hasChanged=0; /*0表示没有改变*/
+    if (aProps.length == bProps.length) {
+      for (let i = 0; i < aProps.length; i++) {
+        let propName = aProps[i];
+        if (this.props[propName] != this.state.contentValue[propName]) {
+          hasChanged=1;
+       }
+      }
+    }
+    if(hasChanged==0){
+      this.setState({ visible: false });
+      return;
+    }
+    let params=this.state.contentValue;
     //发布 人员编辑 事件
     PubSub.publish("employeeEdit",params);
   },
-  handleCancel() {
-    this.setState({ visible: false });
+  handleDelete() {
+    confirm({
+      title: '您是否确认要删除这项内容',
+      content: '',
+      onOk() {
+        MessageTip('删除成功',2,'success');
+      },
+      onCancel() {}
+    });
+  },
+  handleReset() {
+    confirm({
+      title: '您是否确认要重置这个密码',
+      content: '',
+      onOk() {
+        MessageTip('重置密码成功',2,'success');
+      },
+      onCancel() {}
+    });
   },
   render() {
     return (
       <div>
         <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
         <span className="ant-divider" ></span>
-        <Popconfirm title="确定要删除这个吗？" onConfirm={confirm} onCancel={cancel}><a type="primary" >删除</a></Popconfirm>
+        <a type="primary" onClick={this.handleDelete}>删除</a>
         <span className="ant-divider" ></span>
-        <Popconfirm title="确定要重置密码这个吗？" onConfirm={confirm} onCancel={cancel}><a type="primary" >重置密码</a></Popconfirm>
-
+        <a type="primary" onClick={this.handleReset}>重置密码</a>
         <Modal ref="modal"
           visible={this.state.visible}
-          title={this.props.name} onCancel={this.handleCancel}
-          footer={[
-            <Button key="back" type="ghost" size="large" onClick={this.handleCancel}>返 回</Button>,
-            <Button key="submit" type="primary" size="large" loading={this.state.loading} onClick={this.bsubmit}>
-                  提 交
-             </Button>
-          ]}>
-          姓名：<Input  defaultValue={this.props.name} style={{ width: 200 }} /><br/><br/>
-          电话：<InputNumber min={1} max={100}  defaultValue={this.props.mobile} /><br/><br/>
-          地址：<Input  defaultValue={this.props.address} style={{ width: 200 }}/>
+          title={this.props.I_EMPL_NAME}
+          onCancel={this.handleCancel}
+          onOk={this.handleSubmit}>
+          <ModalContent
+            contentValueChange={this.getContentValue}
+            contentValue={this.state.contentValue}
+            visible={this.state.visible}
+            />
         </Modal>
       </div>
     );
@@ -198,17 +319,198 @@ getDefaultProps(){
 });
 
 
+/*新增的弹窗*/
+const NewAdd= React.createClass({
+  getInitialState() {
+    return {
+      loading: false,
+      visible: false
+    };
+  },
+  showModal() {
+    this.setState({
+      visible: true
+    });
+  },
+  handleSubmit() {
 
-
-
-//对象合并
-const objExtend=function(o,n){
-  for(let tem in n){
-    if(tem=='type'){break;}
-    o[tem]=n[tem];
+  },
+  handleDeleteSure(){
+    MessageTip('删除成功',2,'success');
+  },
+  handleDeleteCancel(){
+    MessageTip('不删除',2,'success');
+  },
+  handleResetSure(){
+    MessageTip('重置密码成功',2,'success');
+  },
+  handleResetCancel(){
+    MessageTip('不重置',2,'success');
+  },
+  handleCancel() {
+    this.setState({
+      visible: false
+    });
+  },
+  render() {
+    return (
+      <div>
+        <Button type="primary" onClick={this.showModal} className="employee-add-btn">添加人员<Icon type="plus-square" /></Button>
+        <Modal ref="modal"
+          visible={this.state.visible}
+          title="添加人员"
+          onCancel={this.handleCancel}
+          onOk={this.handleSubmit}>
+          <NewAddModalContent
+            visible={this.state.visible}
+          />
+        </Modal>
+      </div>
+    );
   }
-  return o;
-};
+});
+
+//新增添加 弹窗内容
+let NewAddModalContent =React.createClass({
+  getInitialState() {
+    return {
+    }
+  },
+  componentWillReceiveProps(){
+    //每次打开还原表单的值
+    if(this.props.visible==false){
+      this.props.form.resetFields();
+    }
+  },
+  contentValueChange(){
+    //这里是校验表单输入和保存表单输入，必须通过校验才保存
+    //this.props.contentValueChange(objExtend({id:this.state.contentV.id},this.props.form.getFieldsValue()))
+  },
+  render() {
+     const { getFieldProps } = this.props.form;
+     return (
+       <Form inline>
+       <FormItem
+         label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
+         labelCol={{ span: 8 }}
+         wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入用户名" {...getFieldProps('I_OPER_ACCOUNT',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 163 }} />
+        </FormItem>
+        <FormItem
+          label="员工姓名："
+          labelCol={{ span: 8 }}
+          wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入姓名" {...getFieldProps('I_EMPL_NAME',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 163 }}/>
+       </FormItem>
+       <FormItem
+         label="员工工号："
+         labelCol={{ span: 8}}
+         wrapperCol={{ span: 12 }}>
+       <Input placeholder="请输入员工工号" {...getFieldProps('I_EMPL_CODE',{
+           rules: [{validator: this.contentValueChange}]
+       })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="身份卡号： "
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}>
+        <Input placeholder="请输入身份卡号" {...getFieldProps('I_EMPL_CARD_CODE',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="归属组织： "
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}>
+        <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('I_ORG_ID',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 163 }}>
+          <Option value="0">珠海公交公司</Option>
+          <Option value="1">南屏公交公司</Option>
+        </Select>
+      </FormItem>
+      <FormItem
+        label="角色分配："
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span: 12 }}>
+        <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('I_ROLE_ID',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 163 }}>
+          <Option value="0">系统操作员</Option>
+          <Option value="1">操作员</Option>
+        </Select>
+     </FormItem>
+     <FormItem
+       label="终端授权： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:15 }}>
+       <Select id="select" size="large" placeholder="请选择是否授权" {...getFieldProps('I_OPER_TERM_IF_AUTH',{
+           rules: [{validator: this.contentValueChange}]
+       })} style={{ width: 163 }}>
+         <Option value="0">否</Option>
+         <Option value="1">是</Option>
+       </Select>
+     </FormItem>
+     <FormItem
+       label="员工性别： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:12 }}>
+       <Select id="select" size="large" placeholder="请选择性别"  {...getFieldProps('I_EMPL_SEX',{
+           rules: [{validator: this.contentValueChange}]
+       })} style={{ width: 163 }}>
+         <Option value="1">男</Option>
+         <Option value="0">女</Option>
+       </Select>
+     </FormItem>
+     <FormItem
+       label="出生日期： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:12 }}>
+       <DatePicker {...getFieldProps('I_EMPL_BIRTHDAY',{
+           rules: [{validator: this.contentValueChange}]
+       })} style={{ width: 163 }} />
+     </FormItem>
+     <FormItem
+       label="电子邮箱："
+       labelCol={{ span: 8}}
+       wrapperCol={{ span: 12 }}>
+     <Input placeholder="请输入电子邮箱" {...getFieldProps('I_EMPL_EMAIL',{
+         rules: [{validator: this.contentValueChange}]
+     })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="手机号码："
+        labelCol={{ span: 8}}
+        wrapperCol={{ span: 12 }}>
+      <Input placeholder="请输入手机号码" {...getFieldProps('I_EMPL_MOBILE',{
+          rules: [{validator: this.contentValueChange}]
+      })} style={{ width: 163 }}/>
+       </FormItem>
+       <FormItem
+         label="办公电话："
+         labelCol={{ span: 8}}
+         wrapperCol={{ span: 12 }}>
+       <Input placeholder="请输入办公电话" {...getFieldProps('I_EMPL_OFFICE_PHONE',{
+           rules: [{validator: this.contentValueChange}]
+       })} style={{ width: 163 }}/>
+        </FormItem>
+        <FormItem
+          label="住址："
+          labelCol={{ span:4}}
+          wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入" {...getFieldProps('I_EMPL_ADDRESS',{
+            rules: [{validator: this.contentValueChange}]
+        })} style={{ width: 405 }} />
+         </FormItem>
+       </Form>
+     )
+   }
+});
+NewAddModalContent = Form.create()(NewAddModalContent);
 
 
 
@@ -311,23 +613,21 @@ const Employee= React.createClass({
       }
     };
     params.I_SIZE=this.state.pagination.pageSize;
+    params.I_ROLE_ID=3;
+    params.I_EMPL_ID=3;
+    params.I_ORG_ID=3;
+    params.I_EMPL_CODE=20160307001;
+    params.I_EMPL_CARD_CODE=55555555;
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/list',
+      url:'http://192.168.6.143:60005/proc/employee/update',
       method: 'POST',
       data:params,
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        const pagination = this.state.pagination;
-        pagination.total = result.data.count;
-        pagination.pageSize = 10;
-        pagination.current = result.data.currentPage;
-        this.setState({
-          loading: false,
-          data: result.data.O_T_EMPLOYEE.data,
-          pagination,
-        });
+        MessageTip('成功编辑！！！！！！！',2,'success');
+        this.fetchList();
       }
     });
   },
@@ -362,7 +662,7 @@ const Employee= React.createClass({
      <Row>
       <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
       <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
-      <Col span="12" className="employee-add-layer"><Button type="primary" htmlType="submit" className="employee-add-btn">添加人员<Icon type="plus-square" /></Button> </Col>
+      <Col span="12" className="employee-add-layer"><NewAdd/></Col>
      </Row>
         <div className={this.state.filterClassName} >
           <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
