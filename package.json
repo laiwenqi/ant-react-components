@@ -36,6 +36,6 @@
     "start": "npm run dev",
     "dev": "dora -p 8001 --plugins webpack,hmr,proxy,livereload?enableJs=false",
     "lint": "eslint --ext .js,.jsx src",
-    "build": "atool-build --hash -o ./dist/production/1.0.0"
+    "build": "atool-build  -o ./dist/production/1.0.0"
   }
 }
