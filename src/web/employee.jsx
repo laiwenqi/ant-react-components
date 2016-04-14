@@ -3,22 +3,50 @@ import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
 import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
 import classNames from 'classnames';
+import '../function/function.js';
 import './employee.less';
 const FormItem = Form.Item;
+const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
+
+
+//指定表格每列内容
+const columns = [{
+  title: '姓名',
+  dataIndex: 'EMPL_NAME'
+},{
+  title: '联系电话',
+  dataIndex: 'EMPL_MOBILE'
+  /* sorter: true */
+},{
+  title: '住址',
+  dataIndex: 'EMPL_ADDRESS'
+},{
+  title: '操作',
+  key: 'operation',
+  render(text, row, index) {
+    return (
+      /* 把所在的行的数据传递下去 */
+      <Edit {...row}/>
+      );
+    }
+}];
+
 
 //对象合并
 const objExtend=function(o,n){
   for(let tem in n){
-    if(tem=='type'){break;}
+    if(tem=='type'){break;} //不要把 type 覆盖掉
     o[tem]=n[tem];
   }
   return o;
 };
 
+
+
 //全局提示框
-function MessageTip(msg,time,type) {
+const MessageTip=function(msg,time,type) {
   time=time||2;
   type=type||'success';
   switch(type){
@@ -35,7 +63,8 @@ function MessageTip(msg,time,type) {
       message.loading(msg,time);
     break;
   }
-}
+};
+
 
 
 
@@ -45,13 +74,13 @@ function MessageTip(msg,time,type) {
 let SearchInput = React.createClass({
   getInitialState() {
     return {
-      I_EMPL_KEY: '',
+      EMPL_KEY: '',
       focus: false,
     };
   },
   handleInputChange(e) {
     this.setState({
-      I_EMPL_KEY: e.target.value,
+      EMPL_KEY: e.target.value,
     });
   },
   handleFocusBlur(e) {
@@ -61,7 +90,7 @@ let SearchInput = React.createClass({
   },
   handleSearch(e) {
     let params={};
-    params.I_EMPL_KEY=this.state.I_EMPL_KEY.trim();
+    params.EMPL_KEY=this.state.EMPL_KEY.trim();
     params.type="default";
     if (this.props.onSearch) {
       this.props.onSearch(params);
@@ -70,7 +99,7 @@ let SearchInput = React.createClass({
   render() {
     const btnCls = classNames({
       'ant-search-btn': true,
-      'ant-search-btn-noempty': !!this.state.I_EMPL_KEY.trim(),
+      'ant-search-btn-noempty': !!this.state.EMPL_KEY.trim(),
     });
     const searchCls = classNames({
       'ant-search-input': true,
@@ -78,7 +107,7 @@ let SearchInput = React.createClass({
     });
     return (
       <InputGroup className={searchCls} style={this.props.style}>
-        <Input {...this.props} value={this.state.I_EMPL_KEY} onChange={this.handleInputChange}
+        <Input {...this.props} value={this.state.EMPL_KEY} onChange={this.handleInputChange}
           onFocus={this.handleFocusBlur} onBlur={this.handleFocusBlur} />
           <div className="ant-input-group-wrap">
             <Button className={btnCls} size={this.props.size} onClick={this.handleSearch}>
@@ -121,7 +150,7 @@ const { getFieldProps } = this.props.form;
           label="输入搜索地址："
           labelCol={{ span: 10 }}
           wrapperCol={{ span: 14 }}>
-          <Input placeholder="请输入搜索地址" {...getFieldProps('I_EMPL_ADDRESS', { initialValue: ''})}/>
+          <Input placeholder="请输入搜索地址" {...getFieldProps('EMPL_ADDRESS', { initialValue: ''})}/>
         </FormItem>
       </Col>
     </Row>
@@ -139,30 +168,7 @@ FilterLayer = Form.create()(FilterLayer);
 
 
 
-//指定表格每列内容
-const columns = [{
-  title: '姓名',
-  dataIndex: 'EMPL_NAME'
-},{
-  title: '联系电话',
-  dataIndex: 'EMPL_MOBILE'
-  /* sorter: true */
-},{
-  title: '住址',
-  dataIndex: 'EMPL_ADDRESS'
-},{
-  title: '操作',
-  key: 'operation',
-  render(text, row, index) {
-    return (
-      <Edit id={row.EMPL_ID}
-            I_EMPL_ADDRESS={row.EMPL_ADDRESS}
-            I_EMPL_NAME={row.EMPL_NAME}
-            I_EMPL_MOBILE={row.EMPL_MOBILE}
-      />
-      );
-    }
-}];
+
 
 
 
@@ -170,6 +176,7 @@ const columns = [{
 let ModalContent =React.createClass({
   getInitialState() {
     return {
+      nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
       contentV:this.props.contentValue
     }
   },
@@ -179,41 +186,326 @@ let ModalContent =React.createClass({
       this.props.form.resetFields();
     }
   },
-  contentValueChange(){
-    //这里是校验表单输入和保存表单输入，必须通过校验才保存
-    this.props.contentValueChange(objExtend({id:this.state.contentV.id},this.props.form.getFieldsValue()))
+  handleSubmit(e) {
+    e.preventDefault();
+    this.props.form.validateFieldsAndScroll((errors, values) => {
+      if (!!errors) {
+        console.log('Errors in form!!!');
+        return;
+      }
+        /*判断弹窗表单值是否有改变，没有就不发布更新*/
+       /*！！两个对象长度不等可能会导致不正确判断*/
+       let aProps = Object.getOwnPropertyNames(values);
+       let bProps = Object.getOwnPropertyNames(this.state.nochangecontentV);
+       let hasChanged=0; /*0表示没有改变*/
+         for (let i = 0; i < aProps.length; i++) {
+           let propName = aProps[i];
+           if (values[propName] != this.state.nochangecontentV[propName]) {
+             hasChanged=1;
+          }
+         }
+       if(hasChanged==0){
+         this.handleCancel();
+         return;
+       }
+      let params=objExtend({EMPL_ID:this.state.nochangecontentV.EMPL_ID},values);
+      //发布 编辑 事件
+      PubSub.publish("employeeEdit",params);
+    });
   },
+  handleCancel() {
+    this.props.modalClose();
+  },
+  checkOperAccount(rule, value, callback){
+    //对比，如果和原来的值一样就不做校验了
+    if(this.state.nochangecontentV.OPER_ACCOUNT==value){
+      callback();
+      return;
+    }
+    if(value.trim()!=''){
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplaccount',
+        method: 'POST',
+        data:{
+          OPER_ACCOUNT:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => {callback(new Error('用户名已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('用户名校验失败'));
+        }
+      });
+    }else{
+      callback(new Error('用户名不能空'));
+    }
+  },
+  checkEmplName(rule, value, callback){
+    //对比，如果和原来的值一样就不做校验了
+    if(this.state.nochangecontentV.EMPL_NAME==value){
+      callback();
+      return;
+    }
+    if( value.trim() ==''){
+        callback(new Error('人员姓名不能空'));
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplname',
+        method: 'POST',
+        data:{
+          EMPL_NAME:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('人员姓名校验失败'));
+        }
+      });
+    }
+  },
+  checkEmplCode(rule, value, callback){
+    //对比，如果和原来的值一样就不做校验了
+    if(this.state.nochangecontentV.EMPL_CODE==value){
+      callback();
+      return;
+    }
+    if( value.trim() ==''){
+        callback(new Error('人员工号不能空'));
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
+        method: 'POST',
+        data:{
+          EMPL_CODE:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('人员工号校验失败'));
+        }
+      });
+    }
+  },
+  checkEmplCardCode(rule, value, callback){
+    //对比，如果和原来的值一样就不做校验了
+    if(this.state.nochangecontentV.EMPL_CARD_CODE==value){
+      callback();
+      return;
+    }
+    if( value.trim() ==''){
+      const { getFieldValue } = this.props.form;
+      if(getFieldValue('OPER_TERM_IF_AUTH')==1){
+        callback(new Error('终端授权时，不能空'));
+      }else{
+        callback();
+      };
+      return;
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplcardcode',
+        method: 'POST',
+        data:{
+          EMPL_CARD_CODE:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('身份卡号校验失败'));
+        }
+      });
+    }
+  },
+  checkOther(rule, value, callback){
+    callback();
+  },
+  getValidateStatus(field) {
+   const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
+   if (isFieldValidating(field)) {
+     return 'validating';
+   } else if (!!getFieldError(field)) {
+     return 'error';
+   } else if (getFieldValue(field)) {
+     return 'success';
+   }
+ },
   render() {
-     const { getFieldProps } = this.props.form;
+     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      return (
-       <Form horizontal>
+       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
+       <Form inline form={this.props.form}>
        <FormItem
-         label="姓名："
-         labelCol={{ span: 5 }}
-         wrapperCol={{ span: 12 }}>
-        <Input placeholder="请输入姓名" {...getFieldProps('I_EMPL_NAME',{
-            rules: [{validator: this.contentValueChange}],
-            initialValue: this.state.contentV.I_EMPL_NAME
-        })}/>
+         label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
+         labelCol={{ span: 8 }}
+         wrapperCol={{ span: 12 }}
+        //  hasFeedback
+         help={isFieldValidating('OPER_ACCOUNT') ? '校验中...' : (getFieldError('OPER_ACCOUNT') || []).join(', ')}>
+        <Input placeholder="请输入用户名"  {...getFieldProps('OPER_ACCOUNT',{
+            rules: [{validator: this.checkOperAccount}],
+            initialValue:this.state.contentV.OPER_ACCOUNT
+        })} style={{ width: 163 }} />
         </FormItem>
         <FormItem
-          label="电话："
-          labelCol={{ span: 5 }}
-          wrapperCol={{ span: 12 }}>
-        <Input placeholder="请输入电话" {...getFieldProps('I_EMPL_MOBILE',{
-            rules: [{validator: this.contentValueChange}],
-            initialValue: this.state.contentV.I_EMPL_MOBILE
-        })}/>
+          label="人员姓名："
+          labelCol={{ span: 8 }}
+          wrapperCol={{ span: 12 }}
+          help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
+        <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
+            rules: [{validator: this.checkEmplName}],
+            initialValue:this.state.contentV.EMPL_NAME
+        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
-         label="地址："
-         labelCol={{ span: 5 }}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入地址" {...getFieldProps('I_EMPL_ADDRESS',{
-           rules: [{validator: this.contentValueChange}],
-           initialValue: this.state.contentV.I_EMPL_ADDRESS
-       })}/>
+         label="人员工号："
+         labelCol={{ span: 8}}
+         wrapperCol={{ span: 12 }}
+         help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
+       <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
+           rules: [{validator: this.checkEmplCode}],
+           initialValue:this.state.contentV.EMPL_CODE
+       })} style={{ width: 163 }}/>
       </FormItem>
+      <FormItem
+        label="身份卡号： "
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}
+        help={isFieldValidating('EMPL_CARD_CODE') ? '校验中...' : (getFieldError('EMPL_CARD_CODE') || []).join(', ')}>
+        <Input placeholder="请输入身份卡号" {...getFieldProps('EMPL_CARD_CODE',{
+            rules: [{validator: this.checkEmplCardCode}],
+            initialValue:this.state.contentV.EMPL_CARD_CODE
+        })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="归属组织： "
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}>
+        <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
+            rules: [{validator: this.checkOther}],
+            initialValue:this.state.contentV.ORG_ID
+        })} style={{ width: 163 }}>
+          <Option value={1} >珠海公交公司</Option>
+          <Option value={2} >南屏公交公司</Option>
+        </Select>
+      </FormItem>
+      <FormItem
+        label="角色分配："
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span: 12 }}>
+        <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('ROLE_ID',{
+            rules: [{validator: this.checkOther}],
+            initialValue:this.state.contentV.ROLE_ID
+        })} style={{ width: 163 }}>
+          <Option value={0}>系统操作员</Option>
+          <Option value={1}>操作员</Option>
+        </Select>
+     </FormItem>
+     <FormItem
+       label="终端授权： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:15 }}>
+       <Select id="select" size="large" placeholder="请选择是否授权" {...getFieldProps('OPER_TERM_IF_AUTH',{
+           rules: [{validator: this.checkOther}],
+           initialValue:this.state.contentV.OPER_TERM_IF_AUTH
+       })} style={{ width: 163 }}>
+         <Option value={0}>否</Option>
+         <Option value={1}>是</Option>
+       </Select>
+     </FormItem>
+     <FormItem
+       label="员工性别： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:12 }}>
+       <Select id="select" size="large" placeholder="请选择性别"  {...getFieldProps('EMPL_SEX',{
+           rules: [{validator: this.checkOther}],
+           initialValue:this.state.contentV.EMPL_SEX
+       })} style={{ width: 163 }}>
+         <Option value={1}>男</Option>
+         <Option value={0}>女</Option>
+       </Select>
+     </FormItem>
+     <FormItem
+       label="出生日期： "
+       labelCol={{ span: 8 }}
+       wrapperCol={{ span:12 }}>
+       <DatePicker {...getFieldProps('EMPL_BIRTHDAY',{
+           rules: [{validator: this.checkOther}],
+           initialValue:this.state.contentV.EMPL_BIRTHDAY
+       })} style={{ width: 163 }} />
+     </FormItem>
+     <FormItem
+       label="电子邮箱："
+       labelCol={{ span: 8}}
+       wrapperCol={{ span: 12 }}>
+     <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
+         rules: [{validator: this.checkOther}],
+         initialValue:this.state.contentV.EMPL_EMAIL
+     })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="手机号码："
+        labelCol={{ span: 8}}
+        wrapperCol={{ span: 12 }}>
+      <Input placeholder="请输入手机号码" {...getFieldProps('EMPL_MOBILE',{
+          rules: [{validator: this.checkOther}],
+          initialValue:this.state.contentV.EMPL_MOBILE
+      })} style={{ width: 163 }}/>
+       </FormItem>
+       <FormItem
+         label="办公电话："
+         labelCol={{ span: 8}}
+         wrapperCol={{ span: 12 }}>
+       <Input placeholder="请输入办公电话" {...getFieldProps('EMPL_OFFICE_PHONE',{
+           rules: [{validator: this.checkOther}],
+           initialValue:this.state.contentV.EMPL_OFFICE_PHONE
+       })} style={{ width: 163 }}/>
+        </FormItem>
+        <FormItem
+          label="住址："
+          labelCol={{ span:4}}
+          wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入住址" {...getFieldProps('EMPL_ADDRESS',{
+            rules: [{validator: this.checkOther}],
+            initialValue:this.state.contentV.EMPL_ADDRESS
+        })} style={{ width: 405 }} />
+         </FormItem>
+        <div className="ant-modal-footer FormItem-modal-footer">
+            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
+            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit}>确定</Button>
+        </div>
        </Form>
      )
    }
@@ -227,69 +519,45 @@ const Edit = React.createClass({
   getInitialState() {
     return {
       loading: false,
-      visible: false,
-      contentValue:this.props
+      visible: false
     };
   },
- getDefaultProps(){
-    return {
-      I_EMPL_NAME:"",
-      I_EMPL_ADDRESS:"",
-      I_EMPL_MOBILE:"",
-      id:''
-    };
- },
   showModal() {
     this.setState({
       visible: true
     });
-  },
-  getContentValue(data){
-    this.state.contentValue=data;
   },
   handleCancel() {
     this.setState({
       visible: false
     });
   },
-  handleSubmit() {
-    /*判断弹窗表单值是否有改变，没有就不包存修改*/
-    /*！！两个对象长度不等会导致不正确判断*/
-    let aProps = Object.getOwnPropertyNames(this.state.contentValue);
-    let bProps = Object.getOwnPropertyNames(this.props);
-    let hasChanged=0; /*0表示没有改变*/
-    if (aProps.length == bProps.length) {
-      for (let i = 0; i < aProps.length; i++) {
-        let propName = aProps[i];
-        if (this.props[propName] != this.state.contentValue[propName]) {
-          hasChanged=1;
-       }
-      }
-    }
-    if(hasChanged==0){
-      this.setState({ visible: false });
-      return;
-    }
-    let params=this.state.contentValue;
-    //发布 人员编辑 事件
-    PubSub.publish("employeeEdit",params);
-  },
   handleDelete() {
+    let DELETE_PARAMS={
+      EMPL_ID:this.props.EMPL_ID, //需要删除的人员ID
+      EMPL_NAME:this.props.EMPL_NAME //需要删除的人员名字
+    };
     confirm({
-      title: '您是否确认要删除这项内容',
+      title: '您是否确认要删除'+DELETE_PARAMS.EMPL_NAME,
       content: '',
       onOk() {
-        MessageTip('删除成功',2,'success');
+        //发布 删除 事件
+        PubSub.publish("employeeDelete",DELETE_PARAMS);
       },
       onCancel() {}
     });
   },
   handleReset() {
+    let RESET_PARAMS={
+      EMPL_ID:this.props.EMPL_ID, //需要删除的人员ID
+      EMPL_NAME:this.props.EMPL_NAME //需要删除的人员名字
+    };
     confirm({
-      title: '您是否确认要重置这个密码',
+      title: '您是否确认要重置'+RESET_PARAMS.EMPL_NAME+'的密码',
       content: '',
       onOk() {
-        MessageTip('重置密码成功',2,'success');
+        //发布 重置密码 事件
+        PubSub.publish("employeeResetPassword",RESET_PARAMS);
       },
       onCancel() {}
     });
@@ -298,18 +566,18 @@ const Edit = React.createClass({
     return (
       <div>
         <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
-        <span className="ant-divider" ></span>
+          <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
-        <span className="ant-divider" ></span>
+          <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleReset}>重置密码</a>
         <Modal ref="modal"
           visible={this.state.visible}
-          title={this.props.I_EMPL_NAME}
+          title={'编辑人员-'+this.props.EMPL_NAME}
           onCancel={this.handleCancel}
-          onOk={this.handleSubmit}>
+          footer={null} >
           <ModalContent
-            contentValueChange={this.getContentValue}
-            contentValue={this.state.contentValue}
+            modalClose={this.handleCancel} //传递取消事件
+            contentValue={this.props}  //传递表单的值
             visible={this.state.visible}
             />
         </Modal>
@@ -332,21 +600,6 @@ const NewAdd= React.createClass({
       visible: true
     });
   },
-  handleSubmit() {
-
-  },
-  handleDeleteSure(){
-    MessageTip('删除成功',2,'success');
-  },
-  handleDeleteCancel(){
-    MessageTip('不删除',2,'success');
-  },
-  handleResetSure(){
-    MessageTip('重置密码成功',2,'success');
-  },
-  handleResetCancel(){
-    MessageTip('不重置',2,'success');
-  },
   handleCancel() {
     this.setState({
       visible: false
@@ -360,9 +613,10 @@ const NewAdd= React.createClass({
           visible={this.state.visible}
           title="添加人员"
           onCancel={this.handleCancel}
-          onOk={this.handleSubmit}>
+          footer={null}>
           <NewAddModalContent
             visible={this.state.visible}
+            modalClose={this.handleCancel}
           />
         </Modal>
       </div>
@@ -382,63 +636,198 @@ let NewAddModalContent =React.createClass({
       this.props.form.resetFields();
     }
   },
-  contentValueChange(){
-    //这里是校验表单输入和保存表单输入，必须通过校验才保存
-    //this.props.contentValueChange(objExtend({id:this.state.contentV.id},this.props.form.getFieldsValue()))
+  handleSubmit(e) {
+    e.preventDefault();
+    this.props.form.validateFieldsAndScroll((errors, values) => {
+      if (!!errors) {
+        console.log('Errors in form!!!');
+        return;
+      }
+      let params=values;
+      //发布 新增 事件
+      PubSub.publish("employeeAdd",params);
+      this.props.modalClose();
+    });
+  },
+  handleCancel(){
+    this.props.modalClose();
+  },
+  checkOperAccount(rule, value, callback){
+    if(!value||!value.trim()){
+        callback();
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplaccount',
+        method: 'POST',
+        data:{
+          OPER_ACCOUNT:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('用户名已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('用户名校验失败'));
+        }
+      });
+    }
+  },
+  checkEmplName(rule, value, callback){
+    if(!value||!value.trim()){
+        callback();
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplname',
+        method: 'POST',
+        data:{
+          EMPL_NAME:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('人员姓名校验失败'));
+        }
+      });
+    }
+  },
+  checkEmplCode(rule, value, callback){
+    if(!value||!value.trim()){
+        callback();
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
+        method: 'POST',
+        data:{
+          EMPL_CODE:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('人员工号校验失败'));
+        }
+      });
+    }
+  },
+  checkEmplCardCode(rule, value, callback){
+    if(!value||!value.trim()){
+      const { getFieldValue } = this.props.form;
+      if(getFieldValue('OPER_TERM_IF_AUTH')==1){
+        callback(new Error('终端授权时，不能空'));
+      }else{
+        callback();
+      };
+      return;
+    }else {
+      reqwest({
+        url:'http://192.168.6.143:60005/proc/employee/checkemplcardcode',
+        method: 'POST',
+        data:{
+          EMPL_CARD_CODE:value.trim()
+        },
+        crossOrigin: true, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.exist==1){
+            /*加延时防止闪烁*/
+            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+          }else{
+            setTimeout(() => {callback()}, 800);
+          }
+        },
+        error:() => {
+          setTimeout(() => {callback()}, 800);
+          callback(new Error('身份卡号校验失败'));
+        }
+      });
+    }
+  },
+  checkOther(rule, value, callback){
+    callback();
   },
   render() {
-     const { getFieldProps } = this.props.form;
+     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      return (
-       <Form inline>
+       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
+       <Form inline form={this.props.form}>
        <FormItem
          label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
          labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-        <Input placeholder="请输入用户名" {...getFieldProps('I_OPER_ACCOUNT',{
-            rules: [{validator: this.contentValueChange}]
+         wrapperCol={{ span: 12 }}
+        //  hasFeedback
+         help={isFieldValidating('OPER_ACCOUNT') ? '校验中...' : (getFieldError('OPER_ACCOUNT') || []).join(', ')}>
+        <Input placeholder="请输入用户名"  {...getFieldProps('OPER_ACCOUNT',{
+            rules: [{ required: true, message: '请输入用户名' },{validator: this.checkOperAccount}]
         })} style={{ width: 163 }} />
         </FormItem>
         <FormItem
-          label="员工姓名："
+          label="人员姓名："
           labelCol={{ span: 8 }}
-          wrapperCol={{ span: 12 }}>
-        <Input placeholder="请输入姓名" {...getFieldProps('I_EMPL_NAME',{
-            rules: [{validator: this.contentValueChange}]
+          wrapperCol={{ span: 12 }}
+          help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
+        <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
+            rules: [{ required: true, message: '请输入姓名' },{validator: this.checkEmplName}]
         })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
-         label="员工工号："
+         label="人员工号："
          labelCol={{ span: 8}}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入员工工号" {...getFieldProps('I_EMPL_CODE',{
-           rules: [{validator: this.contentValueChange}]
+         wrapperCol={{ span: 12 }}
+         help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
+       <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
+           rules: [{ required: true, message: '请输入人员工号' },{validator: this.checkEmplCode}]
        })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
-        label="身份卡号： "
+        label="&nbsp;&nbsp;&nbsp;&nbsp;身份卡号： "
         labelCol={{ span: 8 }}
-        wrapperCol={{ span:15 }}>
-        <Input placeholder="请输入身份卡号" {...getFieldProps('I_EMPL_CARD_CODE',{
-            rules: [{validator: this.contentValueChange}]
+        wrapperCol={{ span:15 }}
+        help={isFieldValidating('EMPL_CARD_CODE') ? '校验中...' : (getFieldError('EMPL_CARD_CODE') || []).join(', ')}>
+        <Input placeholder="请输入身份卡号" {...getFieldProps('EMPL_CARD_CODE',{
+            rules: [{validator: this.checkEmplCardCode}]
         })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
         label="归属组织： "
         labelCol={{ span: 8 }}
         wrapperCol={{ span:15 }}>
-        <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('I_ORG_ID',{
-            rules: [{validator: this.contentValueChange}]
+        <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
+            rules: [{ required: true, message: '请选择归属组织' }]
         })} style={{ width: 163 }}>
-          <Option value="0">珠海公交公司</Option>
-          <Option value="1">南屏公交公司</Option>
+          <Option value="1" >珠海公交公司</Option>
+          <Option value="2" >南屏公交公司</Option>
         </Select>
       </FormItem>
       <FormItem
         label="角色分配："
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
-        <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('I_ROLE_ID',{
-            rules: [{validator: this.contentValueChange}]
+        <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('ROLE_ID',{
+            rules: [{ required: true, message: '请选择角色' },{validator: this.checkOther}]
         })} style={{ width: 163 }}>
           <Option value="0">系统操作员</Option>
           <Option value="1">操作员</Option>
@@ -448,8 +837,8 @@ let NewAddModalContent =React.createClass({
        label="终端授权： "
        labelCol={{ span: 8 }}
        wrapperCol={{ span:15 }}>
-       <Select id="select" size="large" placeholder="请选择是否授权" {...getFieldProps('I_OPER_TERM_IF_AUTH',{
-           rules: [{validator: this.contentValueChange}]
+       <Select id="select" size="large" placeholder="请选择是否授权" {...getFieldProps('OPER_TERM_IF_AUTH',{
+           rules: [{ required: true, message: '请选择是否授权' },{validator: this.checkOther}]
        })} style={{ width: 163 }}>
          <Option value="0">否</Option>
          <Option value="1">是</Option>
@@ -459,53 +848,57 @@ let NewAddModalContent =React.createClass({
        label="员工性别： "
        labelCol={{ span: 8 }}
        wrapperCol={{ span:12 }}>
-       <Select id="select" size="large" placeholder="请选择性别"  {...getFieldProps('I_EMPL_SEX',{
-           rules: [{validator: this.contentValueChange}]
+       <Select id="select" size="large" placeholder="请选择性别"  {...getFieldProps('EMPL_SEX',{
+           rules: [{ required: true, message: '请选择性别' },{validator: this.checkOther}]
        })} style={{ width: 163 }}>
          <Option value="1">男</Option>
          <Option value="0">女</Option>
        </Select>
      </FormItem>
      <FormItem
-       label="出生日期： "
+       label="&nbsp;&nbsp;&nbsp;&nbsp;出生日期： "
        labelCol={{ span: 8 }}
        wrapperCol={{ span:12 }}>
-       <DatePicker {...getFieldProps('I_EMPL_BIRTHDAY',{
-           rules: [{validator: this.contentValueChange}]
+       <DatePicker {...getFieldProps('EMPL_BIRTHDAY',{
+           rules: [{validator: this.checkOther}]
        })} style={{ width: 163 }} />
      </FormItem>
      <FormItem
-       label="电子邮箱："
+       label="&nbsp;&nbsp;&nbsp;电子邮箱："
        labelCol={{ span: 8}}
        wrapperCol={{ span: 12 }}>
-     <Input placeholder="请输入电子邮箱" {...getFieldProps('I_EMPL_EMAIL',{
-         rules: [{validator: this.contentValueChange}]
+     <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
+         rules: [{validator: this.checkOther}]
      })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
-        label="手机号码："
+        label="&nbsp;&nbsp;&nbsp;&nbsp;手机号码："
         labelCol={{ span: 8}}
         wrapperCol={{ span: 12 }}>
-      <Input placeholder="请输入手机号码" {...getFieldProps('I_EMPL_MOBILE',{
-          rules: [{validator: this.contentValueChange}]
+      <Input placeholder="请输入手机号码" {...getFieldProps('EMPL_MOBILE',{
+          rules: [{validator: this.checkOther}]
       })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
-         label="办公电话："
+         label="&nbsp;&nbsp;&nbsp;办公电话："
          labelCol={{ span: 8}}
          wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入办公电话" {...getFieldProps('I_EMPL_OFFICE_PHONE',{
-           rules: [{validator: this.contentValueChange}]
+       <Input placeholder="请输入办公电话" {...getFieldProps('EMPL_OFFICE_PHONE',{
+           rules: [{validator: this.checkOther}]
        })} style={{ width: 163 }}/>
         </FormItem>
         <FormItem
           label="住址："
           labelCol={{ span:4}}
           wrapperCol={{ span: 12 }}>
-        <Input placeholder="请输入" {...getFieldProps('I_EMPL_ADDRESS',{
-            rules: [{validator: this.contentValueChange}]
+        <Input placeholder="请输入住址" {...getFieldProps('EMPL_ADDRESS',{
+            rules: [{validator: this.checkOther}]
         })} style={{ width: 405 }} />
          </FormItem>
+        <div className="ant-modal-footer FormItem-modal-footer">
+            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
+            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit}>确定</Button>
+        </div>
        </Form>
      )
    }
@@ -527,7 +920,7 @@ const Employee= React.createClass({
         pageSize:10 //每页显示数目
       },
       loading: false,
-      filterClassName:"filter-content-hidden filter-content-layer",//默认隐藏高级
+      filterClassName:"filter-content-hidden filter-content-layer",//默认隐藏高级搜索
       icontype:'down' //默认高级搜素图标
     };
   },
@@ -572,7 +965,7 @@ const Employee= React.createClass({
         params=objExtend(params,this.state.defaultFilter);
       }
     };
-    params.I_SIZE=this.state.pagination.pageSize;
+    params.SIZE=this.state.pagination.pageSize;
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/list',
@@ -581,10 +974,11 @@ const Employee= React.createClass({
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
+        console.log(result);
         const pagination = this.state.pagination;
-        pagination.total = result.data.count;
+        pagination.total = result.data.O_T_EMPLOYEE.count;
         pagination.pageSize = 10;
-        pagination.current = result.data.currentPage;
+        pagination.current = result.data.O_T_EMPLOYEE.currentPage;
         this.setState({
           loading: false,
           data: result.data.O_T_EMPLOYEE.data,
@@ -612,12 +1006,7 @@ const Employee= React.createClass({
         params=objExtend(params,this.state.defaultFilter);
       }
     };
-    params.I_SIZE=this.state.pagination.pageSize;
-    params.I_ROLE_ID=3;
-    params.I_EMPL_ID=3;
-    params.I_ORG_ID=3;
-    params.I_EMPL_CODE=20160307001;
-    params.I_EMPL_CARD_CODE=55555555;
+    params.SIZE=this.state.pagination.pageSize;
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/update',
@@ -626,7 +1015,65 @@ const Employee= React.createClass({
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        MessageTip('成功编辑！！！！！！！',2,'success');
+        MessageTip(params.EMPL_NAME+'，编辑成功',2,'success');
+        this.fetchList();
+      },
+      error:()=>{
+        MessageTip(params.EMPL_NAME+'，编辑失败',2,'error');
+        this.fetchList();
+      }
+    });
+  },
+  fetchDelete(evtName,data){
+    this.setState({ loading: true });
+    reqwest({
+      url:'http://192.168.6.143:60005/proc/employee/delete',
+      method: 'POST',
+      data:data,
+      crossOrigin: true, //跨域
+      type: "json",
+      success: (result) => {
+        MessageTip(data.EMPL_NAME+'，删除成功',2,'success');
+        this.fetchList();
+      },
+      error:()=>{
+        MessageTip(data.EMPL_NAME+'，删除失败',2,'error');
+        this.fetchList();
+      }
+    });
+  },
+  fetchAdd(evtName,data){
+    this.setState({ loading: true });
+    reqwest({
+      url:'http://192.168.6.143:60005/proc/employee/add',
+      method: 'POST',
+      data:data,
+      crossOrigin: true, //跨域
+      type: "json",
+      success: (result) => {
+        MessageTip(data.EMPL_NAME+'，添加成功',2,'success');
+        this.fetchList();
+      },
+      error:()=>{
+        MessageTip(data.EMPL_NAME+'，添加失败',2,'error');
+        this.fetchList();
+      }
+    });
+  },
+  fetchResetPassword(evtName,data){
+    this.setState({ loading: true });
+    reqwest({
+      url:'http://192.168.6.143:60005/proc/employee/resetpassword',
+      method: 'POST',
+      data:data,
+      crossOrigin: true, //跨域
+      type: "json",
+      success: (result) => {
+        MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
+        this.fetchList();
+      },
+      error:()=>{
+        MessageTip(data.EMPL_NAME+'，重置密码失败',2,'error');
         this.fetchList();
       }
     });
@@ -642,8 +1089,9 @@ const Employee= React.createClass({
     // 订阅 重置密码 的事件
     PubSub.subscribe("employeeResetPassword",this.fetchResetPassword);
   },
+  //这里还要加个退订事件
   filterDisplay(){
-    /*展示还没加上动画*/
+    /*高级搜索展示暂时还没加上动画*/
     if(this.state.filterClassName=="filter-content-hidden filter-content-layer"){
       this.setState({
         filterClassName:"filter-content-show filter-content-layer",

@@ -42,7 +42,7 @@ const MAINBODY_CONTENT= React.createClass({
             'key': '1'
           },{
             'name': '终端管理',
-            'content':'employee',
+            'content':'test',
             'key': '2'
           }]
         },{
