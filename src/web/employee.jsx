@@ -13,15 +13,15 @@ const confirm = Modal.confirm;
 
 //指定表格每列内容
 const columns = [{
+  title: '用户名',
+  dataIndex: 'OPER_ACCOUNT'
+},{
   title: '姓名',
   dataIndex: 'EMPL_NAME'
+  /* sorter: true */
 },{
   title: '联系电话',
   dataIndex: 'EMPL_MOBILE'
-  /* sorter: true */
-},{
-  title: '住址',
-  dataIndex: 'EMPL_ADDRESS'
 },{
   title: '操作',
   key: 'operation',
@@ -36,8 +36,11 @@ const columns = [{
 
 //对象合并
 const objExtend=function(o,n){
+
   for(let tem in n){
-    if(tem=='type'){break;} //不要把 type 覆盖掉
+    if(tem=='type'){
+      continue;
+    } //不要把 type 覆盖掉
     o[tem]=n[tem];
   }
   return o;
@@ -91,7 +94,7 @@ let SearchInput = React.createClass({
   handleSearch(e) {
     let params={};
     params.EMPL_KEY=this.state.EMPL_KEY.trim();
-    params.type="default";
+    params.type="defaultSearch";
     if (this.props.onSearch) {
       this.props.onSearch(params);
     }
@@ -132,7 +135,7 @@ let FilterLayer = React.createClass({
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
-    params.type='more';
+    params.type='moreSearch';
     this.props.search(params);
     this.props.fliterhide();
   },
@@ -147,10 +150,13 @@ const { getFieldProps } = this.props.form;
     <Row>
       <Col span="8">
         <FormItem
-          label="输入搜索地址："
+          label="选择性别："
           labelCol={{ span: 10 }}
           wrapperCol={{ span: 14 }}>
-          <Input placeholder="请输入搜索地址" {...getFieldProps('EMPL_ADDRESS', { initialValue: ''})}/>
+          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
+            <Option value="0">女</Option>
+            <Option value="1">男</Option>
+          </Select>
         </FormItem>
       </Col>
     </Row>
@@ -176,6 +182,7 @@ FilterLayer = Form.create()(FilterLayer);
 let ModalContent =React.createClass({
   getInitialState() {
     return {
+      loading:false,//确定按钮状态
       nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
       contentV:this.props.contentValue
     }
@@ -210,43 +217,13 @@ let ModalContent =React.createClass({
        }
       let params=objExtend({EMPL_ID:this.state.nochangecontentV.EMPL_ID},values);
       //发布 编辑 事件
+      this.state.loading=true;
+      this.props.modalClose();
       PubSub.publish("employeeEdit",params);
     });
   },
   handleCancel() {
     this.props.modalClose();
-  },
-  checkOperAccount(rule, value, callback){
-    //对比，如果和原来的值一样就不做校验了
-    if(this.state.nochangecontentV.OPER_ACCOUNT==value){
-      callback();
-      return;
-    }
-    if(value.trim()!=''){
-      reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplaccount',
-        method: 'POST',
-        data:{
-          OPER_ACCOUNT:value.trim()
-        },
-        crossOrigin: true, //跨域
-        type: "json",
-        success: (result) => {
-          if(result.data.exist==1){
-            /*加延时防止闪烁*/
-            setTimeout(() => {callback(new Error('用户名已存在'))}, 800);
-          }else{
-            setTimeout(() => {callback()}, 800);
-          }
-        },
-        error:() => {
-          setTimeout(() => {callback()}, 800);
-          callback(new Error('用户名校验失败'));
-        }
-      });
-    }else{
-      callback(new Error('用户名不能空'));
-    }
   },
   checkEmplName(rule, value, callback){
     //对比，如果和原来的值一样就不做校验了
@@ -255,7 +232,7 @@ let ModalContent =React.createClass({
       return;
     }
     if( value.trim() ==''){
-        callback(new Error('人员姓名不能空'));
+        callback();
     }else {
       reqwest({
         url:'http://192.168.6.143:60005/proc/employee/checkemplname',
@@ -287,7 +264,7 @@ let ModalContent =React.createClass({
       return;
     }
     if( value.trim() ==''){
-        callback(new Error('人员工号不能空'));
+        callback();
     }else {
       reqwest({
         url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
@@ -344,8 +321,7 @@ let ModalContent =React.createClass({
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
-          callback(new Error('身份卡号校验失败'));
+          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
@@ -369,15 +345,10 @@ let ModalContent =React.createClass({
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
        <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
+         label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;用户名："
          labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}
-        //  hasFeedback
-         help={isFieldValidating('OPER_ACCOUNT') ? '校验中...' : (getFieldError('OPER_ACCOUNT') || []).join(', ')}>
-        <Input placeholder="请输入用户名"  {...getFieldProps('OPER_ACCOUNT',{
-            rules: [{validator: this.checkOperAccount}],
-            initialValue:this.state.contentV.OPER_ACCOUNT
-        })} style={{ width: 163 }} />
+         wrapperCol={{ span: 12 }}>
+        <Input placeholder="请输入用户名" disabled='true' defaultValue={this.state.contentV.OPER_ACCOUNT} style={{ width: 163 }} />
         </FormItem>
         <FormItem
           label="人员姓名："
@@ -385,7 +356,7 @@ let ModalContent =React.createClass({
           wrapperCol={{ span: 12 }}
           help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
         <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
-            rules: [{validator: this.checkEmplName}],
+            rules: [{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}],
             initialValue:this.state.contentV.EMPL_NAME
         })} style={{ width: 163 }}/>
        </FormItem>
@@ -395,12 +366,12 @@ let ModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
        <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
-           rules: [{validator: this.checkEmplCode}],
+           rules: [{ required: true,whitespace:true, message: '请输入工号' },{validator: this.checkEmplCode}],
            initialValue:this.state.contentV.EMPL_CODE
        })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
-        label="身份卡号： "
+        label="&nbsp;&nbsp;&nbsp;&nbsp;身份卡号： "
         labelCol={{ span: 8 }}
         wrapperCol={{ span:15 }}
         help={isFieldValidating('EMPL_CARD_CODE') ? '校验中...' : (getFieldError('EMPL_CARD_CODE') || []).join(', ')}>
@@ -414,11 +385,11 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span:15 }}>
         <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
-            rules: [{validator: this.checkOther}],
-            initialValue:this.state.contentV.ORG_ID
+            rules: [{ required: true, message: '请选择组织' },{validator: this.checkOther}],
+            initialValue:String(this.state.contentV.ORG_ID)
         })} style={{ width: 163 }}>
-          <Option value={1} >珠海公交公司</Option>
-          <Option value={2} >南屏公交公司</Option>
+          <Option value="1" >珠海公交公司</Option>
+          <Option value="2" >南屏公交公司</Option>
         </Select>
       </FormItem>
       <FormItem
@@ -426,11 +397,11 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
         <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('ROLE_ID',{
-            rules: [{validator: this.checkOther}],
-            initialValue:this.state.contentV.ROLE_ID
+            rules: [{ required: true,message: '请选择角色' },{validator: this.checkOther}],
+            initialValue:String(this.state.contentV.ROLE_ID)
         })} style={{ width: 163 }}>
-          <Option value={0}>系统操作员</Option>
-          <Option value={1}>操作员</Option>
+          <Option value="0">系统操作员</Option>
+          <Option value="1">操作员</Option>
         </Select>
      </FormItem>
      <FormItem
@@ -438,11 +409,11 @@ let ModalContent =React.createClass({
        labelCol={{ span: 8 }}
        wrapperCol={{ span:15 }}>
        <Select id="select" size="large" placeholder="请选择是否授权" {...getFieldProps('OPER_TERM_IF_AUTH',{
-           rules: [{validator: this.checkOther}],
-           initialValue:this.state.contentV.OPER_TERM_IF_AUTH
+           rules: [{ required: true,message: '请选择是否授权' },{validator: this.checkOther}],
+           initialValue:String(this.state.contentV.OPER_TERM_IF_AUTH)
        })} style={{ width: 163 }}>
-         <Option value={0}>否</Option>
-         <Option value={1}>是</Option>
+         <Option value="0">否</Option>
+         <Option value="1">是</Option>
        </Select>
      </FormItem>
      <FormItem
@@ -450,15 +421,15 @@ let ModalContent =React.createClass({
        labelCol={{ span: 8 }}
        wrapperCol={{ span:12 }}>
        <Select id="select" size="large" placeholder="请选择性别"  {...getFieldProps('EMPL_SEX',{
-           rules: [{validator: this.checkOther}],
-           initialValue:this.state.contentV.EMPL_SEX
+           rules: [{ required: true,message: '请选择是否性别' },{validator: this.checkOther}],
+           initialValue:String(this.state.contentV.EMPL_SEX)
        })} style={{ width: 163 }}>
-         <Option value={1}>男</Option>
-         <Option value={0}>女</Option>
+         <Option value="1">男</Option>
+         <Option value="0">女</Option>
        </Select>
      </FormItem>
      <FormItem
-       label="出生日期： "
+       label="&nbsp;&nbsp;&nbsp;&nbsp;出生日期： "
        labelCol={{ span: 8 }}
        wrapperCol={{ span:12 }}>
        <DatePicker {...getFieldProps('EMPL_BIRTHDAY',{
@@ -467,16 +438,16 @@ let ModalContent =React.createClass({
        })} style={{ width: 163 }} />
      </FormItem>
      <FormItem
-       label="电子邮箱："
+       label="&nbsp;&nbsp;&nbsp;电子邮箱："
        labelCol={{ span: 8}}
        wrapperCol={{ span: 12 }}>
      <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
-         rules: [{validator: this.checkOther}],
+         rules: [{ type: 'email', message: '请输入正确的邮箱' },{validator: this.checkOther}],
          initialValue:this.state.contentV.EMPL_EMAIL
      })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
-        label="手机号码："
+        label="&nbsp;&nbsp;&nbsp;&nbsp;手机号码："
         labelCol={{ span: 8}}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入手机号码" {...getFieldProps('EMPL_MOBILE',{
@@ -485,7 +456,7 @@ let ModalContent =React.createClass({
       })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
-         label="办公电话："
+         label="&nbsp;&nbsp;&nbsp;办公电话："
          labelCol={{ span: 8}}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入办公电话" {...getFieldProps('EMPL_OFFICE_PHONE',{
@@ -503,8 +474,8 @@ let ModalContent =React.createClass({
         })} style={{ width: 405 }} />
          </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
-            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
-            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit}>确定</Button>
+            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
+            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
         </div>
        </Form>
      )
@@ -660,7 +631,7 @@ let NewAddModalContent =React.createClass({
         url:'http://192.168.6.143:60005/proc/employee/checkemplaccount',
         method: 'POST',
         data:{
-          OPER_ACCOUNT:value.trim()
+          OPER_ACCOUNT:value
         },
         crossOrigin: true, //跨域
         type: "json",
@@ -687,7 +658,7 @@ let NewAddModalContent =React.createClass({
         url:'http://192.168.6.143:60005/proc/employee/checkemplname',
         method: 'POST',
         data:{
-          EMPL_NAME:value.trim()
+          EMPL_NAME:value
         },
         crossOrigin: true, //跨域
         type: "json",
@@ -714,7 +685,7 @@ let NewAddModalContent =React.createClass({
         url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
         method: 'POST',
         data:{
-          EMPL_CODE:value.trim()
+          EMPL_CODE:value
         },
         crossOrigin: true, //跨域
         type: "json",
@@ -747,7 +718,7 @@ let NewAddModalContent =React.createClass({
         url:'http://192.168.6.143:60005/proc/employee/checkemplcardcode',
         method: 'POST',
         data:{
-          EMPL_CARD_CODE:value.trim()
+          EMPL_CARD_CODE:value
         },
         crossOrigin: true, //跨域
         type: "json",
@@ -760,8 +731,7 @@ let NewAddModalContent =React.createClass({
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
-          callback(new Error('身份卡号校验失败'));
+          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
@@ -781,7 +751,7 @@ let NewAddModalContent =React.createClass({
         //  hasFeedback
          help={isFieldValidating('OPER_ACCOUNT') ? '校验中...' : (getFieldError('OPER_ACCOUNT') || []).join(', ')}>
         <Input placeholder="请输入用户名"  {...getFieldProps('OPER_ACCOUNT',{
-            rules: [{ required: true, message: '请输入用户名' },{validator: this.checkOperAccount}]
+            rules: [{ required: true,whitespace:true,message: '请输入用户名' },{validator: this.checkOperAccount}]
         })} style={{ width: 163 }} />
         </FormItem>
         <FormItem
@@ -790,7 +760,7 @@ let NewAddModalContent =React.createClass({
           wrapperCol={{ span: 12 }}
           help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
         <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
-            rules: [{ required: true, message: '请输入姓名' },{validator: this.checkEmplName}]
+            rules: [{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}]
         })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -799,7 +769,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
        <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
-           rules: [{ required: true, message: '请输入人员工号' },{validator: this.checkEmplCode}]
+           rules: [{ required: true,whitespace:true, message: '请输入人员工号' },{validator: this.checkEmplCode}]
        })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
@@ -868,7 +838,7 @@ let NewAddModalContent =React.createClass({
        labelCol={{ span: 8}}
        wrapperCol={{ span: 12 }}>
      <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
-         rules: [{validator: this.checkOther}]
+         rules: [{ type: 'email', message: '请输入正确的邮箱' },{validator: this.checkOther}]
      })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
@@ -912,20 +882,18 @@ NewAddModalContent = Form.create()(NewAddModalContent);
 const Employee= React.createClass({
    getInitialState() {
     return {
+      data: [],
       defaultFilter:{},
       moreFilter:{},
-      onchangeFilter:{},
-      data: [],
       pagination: {
-        pageSize:10 //每页显示数目
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1//页数
       },
       loading: false,
       filterClassName:"filter-content-hidden filter-content-layer",//默认隐藏高级搜索
       icontype:'down' //默认高级搜素图标
     };
-  },
-  handleSearchClick(){
-
   },
   handleTableChange(pagination, filters, sorter) {
     const pager = this.state.pagination;
@@ -934,9 +902,9 @@ const Employee= React.createClass({
       pagination: pager
     });
     const params = {
-      type:'onchange',
+      type:'tableOnChange',
       pageSize: pagination.pageSize,
-      currentPage: pagination.current,
+      current: pagination.current,
       sortField: sorter.field,
       sortOrder: sorter.order
     };
@@ -948,24 +916,48 @@ const Employee= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    if(params.type!='undefined'){
-      if(params.type=='more'){
-        this.state.moreFilter=params;
-        params=objExtend(params,this.state.defaultFilter);
-        params=objExtend(params,this.state.onchangeFilter);
-      }
-      if(params.type=='default'){
-        this.state.defaultFilter=params;
+    this.setState({
+      filterClassName:"filter-content-hidden filter-content-layer",
+      icontype:'down'
+    });
+    switch (params.type) {
+      case undefined:
+      case 'undefined':
+        params=objExtend(params,this.state.pagination);
+        break;
+      case 'defaultSearch': //默认搜索行为
+        this.state.defaultFilter={
+          EMPL_KEY:params.EMPL_KEY
+        };
         params=objExtend(params,this.state.moreFilter);
-        params=objExtend(params,this.state.onchangeFilter);
-      }
-      if(params.type=='onchange'){
-        this.state.onchangeFilter=params;
+        params=objExtend(params,{
+          pageSize:10, //每页显示数目
+          current:1//页数
+        });
+        break;
+      case 'moreSearch':    //高级搜索行为
+        this.state.moreFilter={
+          EMPL_SEX:params.EMPL_SEX
+        };
+        params=objExtend(params,this.state.defaultFilter);
+        params=objExtend(params,{
+          pageSize:10, //每页显示数目
+          current:1//页数
+        });
+        break;
+      case 'tableOnChange'://翻页排序等行为
+        this.state.pagination={
+          pageSize:params.pageSize,
+          current:params.currentPage,
+          sortField:params.sortField,
+          sortOrder:params.sortOrder
+        };
         params=objExtend(params,this.state.moreFilter);
         params=objExtend(params,this.state.defaultFilter);
-      }
-    };
-    params.SIZE=this.state.pagination.pageSize;
+        break;
+      default:
+        params=objExtend(params,this.state.pagination);
+    }
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/list',
@@ -974,10 +966,8 @@ const Employee= React.createClass({
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        console.log(result);
         const pagination = this.state.pagination;
         pagination.total = result.data.O_T_EMPLOYEE.count;
-        pagination.pageSize = 10;
         pagination.current = result.data.O_T_EMPLOYEE.currentPage;
         this.setState({
           loading: false,
@@ -988,79 +978,75 @@ const Employee= React.createClass({
     });
   },
   fetchEdit(evtName,data){
-    let params=objExtend({},data);
-    if(params.type!='undefined'){
-      if(params.type=='more'){
-        this.state.moreFilter=params;
-        params=objExtend(params,this.state.defaultFilter);
-        params=objExtend(params,this.state.onchangeFilter);
-      }
-      if(params.type=='default'){
-        this.state.defaultFilter=params;
-        params=objExtend(params,this.state.moreFilter);
-        params=objExtend(params,this.state.onchangeFilter);
-      }
-      if(params.type=='onchange'){
-        this.state.onchangeFilter=params;
-        params=objExtend(params,this.state.moreFilter);
-        params=objExtend(params,this.state.defaultFilter);
-      }
-    };
-    params.SIZE=this.state.pagination.pageSize;
+    let editParams=objExtend({},data);
+    let listParams=objExtend({},this.state.defaultFilter);
+    listParams=objExtend(listParams,this.state.moreFilter);
+    listParams=objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/update',
       method: 'POST',
-      data:params,
+      data:editParams,
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        MessageTip(params.EMPL_NAME+'，编辑成功',2,'success');
-        this.fetchList();
+        result.data.ERROR==0&&MessageTip(editParams.EMPL_NAME+'，编辑成功',2,'success');
+        result.data.ERROR!=0&&MessageTip(editParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        this.fetchList(listParams);
       },
       error:()=>{
         MessageTip(params.EMPL_NAME+'，编辑失败',2,'error');
-        this.fetchList();
+        this.fetchList(listParams);
       }
     });
   },
   fetchDelete(evtName,data){
+    let deleteParams=objExtend({},data);
+    let listParams=objExtend({},this.state.defaultFilter);
+    listParams=objExtend(listParams,this.state.moreFilter);
+    listParams=objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/delete',
       method: 'POST',
-      data:data,
+      data:deleteParams,
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        MessageTip(data.EMPL_NAME+'，删除成功',2,'success');
-        this.fetchList();
+        result.data.ERROR==0 && MessageTip(deleteParams.EMPL_NAME+'，删除成功',2,'success');
+        result.data.ERROR!=0 && MessageTip(deleteParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        this.fetchList(listParams);
       },
       error:()=>{
-        MessageTip(data.EMPL_NAME+'，删除失败',2,'error');
-        this.fetchList();
+        MessageTip(deleteParams.EMPL_NAME+'，删除失败',2,'error');
+        this.fetchList(listParams);
       }
     });
   },
   fetchAdd(evtName,data){
+    let addParams=objExtend({},data);
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/add',
       method: 'POST',
-      data:data,
+      data:addParams,
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        MessageTip(data.EMPL_NAME+'，添加成功',2,'success');
+        result.data.ERROR==0 && MessageTip(addParams.EMPL_NAME+'，添加成功',2,'success');
+        result.data.ERROR!=0 && MessageTip(addParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList();
       },
       error:()=>{
-        MessageTip(data.EMPL_NAME+'，添加失败',2,'error');
+        MessageTip(addParams.EMPL_NAME+'，添加失败',2,'error');
         this.fetchList();
       }
     });
   },
   fetchResetPassword(evtName,data){
+    let listParams=objExtend({},this.state.defaultFilter);
+    listParams=objExtend(listParams,this.state.moreFilter);
+    listParams=objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
       url:'http://192.168.6.143:60005/proc/employee/resetpassword',
@@ -1069,12 +1055,13 @@ const Employee= React.createClass({
       crossOrigin: true, //跨域
       type: "json",
       success: (result) => {
-        MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
-        this.fetchList();
+        result.data.ERROR==0 && MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
+        result.data.ERROR!=0 && MessageTip(data.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        this.fetchList(listParams);
       },
       error:()=>{
         MessageTip(data.EMPL_NAME+'，重置密码失败',2,'error');
-        this.fetchList();
+        this.fetchList(listParams);
       }
     });
   },

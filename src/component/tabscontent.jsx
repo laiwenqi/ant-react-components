@@ -1,7 +1,7 @@
 import React from 'react';
 /*import所有用到的页面*/
  import Employee from '../web/employee.jsx';
- import Test from '../web/test.jsx';
+ import Device from '../web/device.jsx';
 
 //下面根据标签页面显示内容
 const TabsContent= React.createClass({
@@ -20,9 +20,9 @@ const TabsContent= React.createClass({
           <Employee/>
         )
       break;
-      case "test":
+      case "device":
         return (
-          <Test/>
+          <Device/>
         )
       break;
     }
