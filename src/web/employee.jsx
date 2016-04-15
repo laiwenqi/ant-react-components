@@ -1,24 +1,31 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
+import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm,Icon,Button,Dropdown,Popover,Select } from 'antd';
 import classNames from 'classnames';
-import '../function/function.js';
+import web_config from '../function/config.js';
+import commonFunction from '../function/function.js';
 import './employee.less';
 const FormItem = Form.Item;
 const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
 
+//定义组织
+let organization;
+
+//定义角色
+let role;
 
 //指定表格每列内容
 const columns = [{
   title: '用户名',
-  dataIndex: 'OPER_ACCOUNT'
+  dataIndex: 'OPER_ACCOUNT',
+  sorter: true
 },{
   title: '姓名',
-  dataIndex: 'EMPL_NAME'
-  /* sorter: true */
+  dataIndex: 'EMPL_NAME',
+  sorter: true
 },{
   title: '联系电话',
   dataIndex: 'EMPL_MOBILE'
@@ -34,56 +41,20 @@ const columns = [{
 }];
 
 
-//对象合并
-const objExtend=function(o,n){
-
-  for(let tem in n){
-    if(tem=='type'){
-      continue;
-    } //不要把 type 覆盖掉
-    o[tem]=n[tem];
-  }
-  return o;
-};
-
-
-
-//全局提示框
-const MessageTip=function(msg,time,type) {
-  time=time||2;
-  type=type||'success';
-  switch(type){
-    case 'success':
-      message.success(msg,time);
-    break;
-    case 'error':
-      message.error(msg,time);
-    break;
-    case 'info':
-      message.info(msg,time);
-    break;
-    case 'loading':
-      message.loading(msg,time);
-    break;
-  }
-};
-
-
-
 
 
 
 //这里是默认简易的搜索
-let SearchInput = React.createClass({
+const SearchInput = React.createClass({
   getInitialState() {
     return {
-      EMPL_KEY: '',
+      FILTER_KEY: '',
       focus: false,
     };
   },
   handleInputChange(e) {
     this.setState({
-      EMPL_KEY: e.target.value,
+      FILTER_KEY: e.target.value,
     });
   },
   handleFocusBlur(e) {
@@ -93,7 +64,7 @@ let SearchInput = React.createClass({
   },
   handleSearch(e) {
     let params={};
-    params.EMPL_KEY=this.state.EMPL_KEY.trim();
+    params.FILTER_KEY=this.state.FILTER_KEY.trim();
     params.type="defaultSearch";
     if (this.props.onSearch) {
       this.props.onSearch(params);
@@ -102,7 +73,7 @@ let SearchInput = React.createClass({
   render() {
     const btnCls = classNames({
       'ant-search-btn': true,
-      'ant-search-btn-noempty': !!this.state.EMPL_KEY.trim(),
+      'ant-search-btn-noempty': !!this.state.FILTER_KEY.trim(),
     });
     const searchCls = classNames({
       'ant-search-input': true,
@@ -110,7 +81,7 @@ let SearchInput = React.createClass({
     });
     return (
       <InputGroup className={searchCls} style={this.props.style}>
-        <Input {...this.props} value={this.state.EMPL_KEY} onChange={this.handleInputChange}
+        <Input {...this.props} value={this.state.FILTER_KEY} onChange={this.handleInputChange}
           onFocus={this.handleFocusBlur} onBlur={this.handleFocusBlur} />
           <div className="ant-input-group-wrap">
             <Button className={btnCls} size={this.props.size} onClick={this.handleSearch}>
@@ -197,7 +168,7 @@ let ModalContent =React.createClass({
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
-        console.log('Errors in form!!!');
+        console.log('表单没通过验证!!!');
         return;
       }
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
@@ -215,11 +186,11 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
-      let params=objExtend({EMPL_ID:this.state.nochangecontentV.EMPL_ID},values);
+      let params=commonFunction.objExtend({EMPL_ID:this.state.nochangecontentV.EMPL_ID},values);
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("employeeEdit",params);
+      PubSub.publish("Edit",params);
     });
   },
   handleCancel() {
@@ -235,12 +206,12 @@ let ModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplname',
+        url:web_config.get_data_domain+'/proc/employee/checkemplname',
         method: 'POST',
         data:{
           EMPL_NAME:value.trim()
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -267,12 +238,12 @@ let ModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
+        url:web_config.get_data_domain+'/proc/employee/checkemplcode',
         method: 'POST',
         data:{
           EMPL_CODE:value.trim()
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -291,7 +262,7 @@ let ModalContent =React.createClass({
   },
   checkEmplCardCode(rule, value, callback){
     //对比，如果和原来的值一样就不做校验了
-    if(this.state.nochangecontentV.EMPL_CARD_CODE==value){
+    if(value.trim() !=''&&this.state.nochangecontentV.EMPL_CARD_CODE==value){
       callback();
       return;
     }
@@ -305,12 +276,12 @@ let ModalContent =React.createClass({
       return;
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplcardcode',
+        url:web_config.get_data_domain+'/proc/employee/checkemplcardcode',
         method: 'POST',
         data:{
           EMPL_CARD_CODE:value.trim()
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -341,6 +312,12 @@ let ModalContent =React.createClass({
  },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+     const organizationList=organization.map(function(item){
+       return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
+     });
+     const roleList=role.map(function(item){
+       return (<Option value={String(item.ROLE_ID)} >{item.ROLE_NAME}</Option>)
+     });
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
@@ -388,8 +365,7 @@ let ModalContent =React.createClass({
             rules: [{ required: true, message: '请选择组织' },{validator: this.checkOther}],
             initialValue:String(this.state.contentV.ORG_ID)
         })} style={{ width: 163 }}>
-          <Option value="1" >珠海公交公司</Option>
-          <Option value="2" >南屏公交公司</Option>
+          { organizationList }
         </Select>
       </FormItem>
       <FormItem
@@ -400,8 +376,7 @@ let ModalContent =React.createClass({
             rules: [{ required: true,message: '请选择角色' },{validator: this.checkOther}],
             initialValue:String(this.state.contentV.ROLE_ID)
         })} style={{ width: 163 }}>
-          <Option value="0">系统操作员</Option>
-          <Option value="1">操作员</Option>
+          { roleList }
         </Select>
      </FormItem>
      <FormItem
@@ -513,7 +488,7 @@ const Edit = React.createClass({
       content: '',
       onOk() {
         //发布 删除 事件
-        PubSub.publish("employeeDelete",DELETE_PARAMS);
+        PubSub.publish("Delete",DELETE_PARAMS);
       },
       onCancel() {}
     });
@@ -528,7 +503,7 @@ const Edit = React.createClass({
       content: '',
       onOk() {
         //发布 重置密码 事件
-        PubSub.publish("employeeResetPassword",RESET_PARAMS);
+        PubSub.publish("ResetPassword",RESET_PARAMS);
       },
       onCancel() {}
     });
@@ -542,6 +517,7 @@ const Edit = React.createClass({
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleReset}>重置密码</a>
         <Modal ref="modal"
+          width="550"
           visible={this.state.visible}
           title={'编辑人员-'+this.props.EMPL_NAME}
           onCancel={this.handleCancel}
@@ -579,8 +555,9 @@ const NewAdd= React.createClass({
   render() {
     return (
       <div>
-        <Button type="primary" onClick={this.showModal} className="employee-add-btn">添加人员<Icon type="plus-square" /></Button>
+        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加人员<Icon type="plus-square" /></Button>
         <Modal ref="modal"
+          width="550"
           visible={this.state.visible}
           title="添加人员"
           onCancel={this.handleCancel}
@@ -611,12 +588,12 @@ let NewAddModalContent =React.createClass({
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
-        console.log('Errors in form!!!');
+        console.log('表单未通过验证!!!');
         return;
       }
       let params=values;
       //发布 新增 事件
-      PubSub.publish("employeeAdd",params);
+      PubSub.publish("Add",params);
       this.props.modalClose();
     });
   },
@@ -628,12 +605,12 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplaccount',
+        url:web_config.get_data_domain+'/proc/employee/checkemplaccount',
         method: 'POST',
         data:{
           OPER_ACCOUNT:value
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -655,12 +632,12 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplname',
+        url:web_config.get_data_domain+'/proc/employee/checkemplname',
         method: 'POST',
         data:{
           EMPL_NAME:value
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -682,12 +659,12 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplcode',
+        url:web_config.get_data_domain+'/proc/employee/checkemplcode',
         method: 'POST',
         data:{
           EMPL_CODE:value
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -715,12 +692,12 @@ let NewAddModalContent =React.createClass({
       return;
     }else {
       reqwest({
-        url:'http://192.168.6.143:60005/proc/employee/checkemplcardcode',
+        url:web_config.get_data_domain+'/proc/employee/checkemplcardcode',
         method: 'POST',
         data:{
           EMPL_CARD_CODE:value
         },
-        crossOrigin: true, //跨域
+        crossOrigin:web_config.cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
@@ -741,6 +718,12 @@ let NewAddModalContent =React.createClass({
   },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+     const organizationList=organization.map(function(item){
+       return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
+     });
+     const roleList=role.map(function(item){
+       return (<Option value={String(item.ROLE_ID)} >{item.ROLE_NAME}</Option>)
+     });
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
@@ -788,8 +771,7 @@ let NewAddModalContent =React.createClass({
         <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
             rules: [{ required: true, message: '请选择归属组织' }]
         })} style={{ width: 163 }}>
-          <Option value="1" >珠海公交公司</Option>
-          <Option value="2" >南屏公交公司</Option>
+          {organizationList}
         </Select>
       </FormItem>
       <FormItem
@@ -799,8 +781,7 @@ let NewAddModalContent =React.createClass({
         <Select id="select" size="large" placeholder="请选择角色" {...getFieldProps('ROLE_ID',{
             rules: [{ required: true, message: '请选择角色' },{validator: this.checkOther}]
         })} style={{ width: 163 }}>
-          <Option value="0">系统操作员</Option>
-          <Option value="1">操作员</Option>
+          {roleList}
         </Select>
      </FormItem>
      <FormItem
@@ -891,7 +872,7 @@ const Employee= React.createClass({
         current:1//页数
       },
       loading: false,
-      filterClassName:"filter-content-hidden filter-content-layer",//默认隐藏高级搜索
+      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
       icontype:'down' //默认高级搜素图标
     };
   },
@@ -917,20 +898,20 @@ const Employee= React.createClass({
   },
   fetchList(params = {}) {
     this.setState({
-      filterClassName:"filter-content-hidden filter-content-layer",
+      filterClassName:"el-display-none filter-content-layer",
       icontype:'down'
     });
     switch (params.type) {
       case undefined:
       case 'undefined':
-        params=objExtend(params,this.state.pagination);
+        params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
         this.state.defaultFilter={
-          EMPL_KEY:params.EMPL_KEY
+          FILTER_KEY:params.FILTER_KEY
         };
-        params=objExtend(params,this.state.moreFilter);
-        params=objExtend(params,{
+        params=commonFunction.objExtend(params,this.state.moreFilter);
+        params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
           current:1//页数
         });
@@ -939,8 +920,8 @@ const Employee= React.createClass({
         this.state.moreFilter={
           EMPL_SEX:params.EMPL_SEX
         };
-        params=objExtend(params,this.state.defaultFilter);
-        params=objExtend(params,{
+        params=commonFunction.objExtend(params,this.state.defaultFilter);
+        params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
           current:1//页数
         });
@@ -952,23 +933,25 @@ const Employee= React.createClass({
           sortField:params.sortField,
           sortOrder:params.sortOrder
         };
-        params=objExtend(params,this.state.moreFilter);
-        params=objExtend(params,this.state.defaultFilter);
+        params=commonFunction.objExtend(params,this.state.moreFilter);
+        params=commonFunction.objExtend(params,this.state.defaultFilter);
         break;
       default:
-        params=objExtend(params,this.state.pagination);
+        params=commonFunction.objExtend(params,this.state.pagination);
     }
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/list',
+      url:web_config.get_data_domain+'/proc/employee/list',
       method: 'POST',
       data:params,
-      crossOrigin: true, //跨域
+      crossOrigin: web_config.cross, //跨域
       type: "json",
       success: (result) => {
         const pagination = this.state.pagination;
         pagination.total = result.data.O_T_EMPLOYEE.count;
         pagination.current = result.data.O_T_EMPLOYEE.currentPage;
+        organization=result.data.O_T_ORGANIZATION;
+        role=result.data.O_T_ROLE;
         this.setState({
           loading: false,
           data: result.data.O_T_EMPLOYEE.data,
@@ -978,89 +961,89 @@ const Employee= React.createClass({
     });
   },
   fetchEdit(evtName,data){
-    let editParams=objExtend({},data);
-    let listParams=objExtend({},this.state.defaultFilter);
-    listParams=objExtend(listParams,this.state.moreFilter);
-    listParams=objExtend(listParams,this.state.pagination);
+    let editParams=commonFunction.objExtend({},data);
+    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/update',
+      url:web_config.get_data_domain+'/proc/employee/update',
       method: 'POST',
       data:editParams,
-      crossOrigin: true, //跨域
+      crossOrigin:web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0&&MessageTip(editParams.EMPL_NAME+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&MessageTip(editParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0&&commonFunction.MessageTip(editParams.EMPL_NAME+'，编辑成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        MessageTip(params.EMPL_NAME+'，编辑失败',2,'error');
+        commonFunction.MessageTip(params.EMPL_NAME+'，编辑失败',2,'error');
         this.fetchList(listParams);
       }
     });
   },
   fetchDelete(evtName,data){
-    let deleteParams=objExtend({},data);
-    let listParams=objExtend({},this.state.defaultFilter);
-    listParams=objExtend(listParams,this.state.moreFilter);
-    listParams=objExtend(listParams,this.state.pagination);
+    let deleteParams=commonFunction.objExtend({},data);
+    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/delete',
+      url:web_config.get_data_domain+'/proc/employee/delete',
       method: 'POST',
       data:deleteParams,
-      crossOrigin: true, //跨域
+      crossOrigin:web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && MessageTip(deleteParams.EMPL_NAME+'，删除成功',2,'success');
-        result.data.ERROR!=0 && MessageTip(deleteParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.EMPL_NAME+'，删除成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        MessageTip(deleteParams.EMPL_NAME+'，删除失败',2,'error');
+        commonFunction.MessageTip(deleteParams.EMPL_NAME+'，删除失败',2,'error');
         this.fetchList(listParams);
       }
     });
   },
   fetchAdd(evtName,data){
-    let addParams=objExtend({},data);
+    let addParams=commonFunction.objExtend({},data);
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/add',
+      url:web_config.get_data_domain+'/proc/employee/add',
       method: 'POST',
       data:addParams,
-      crossOrigin: true, //跨域
+      crossOrigin:web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && MessageTip(addParams.EMPL_NAME+'，添加成功',2,'success');
-        result.data.ERROR!=0 && MessageTip(addParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(addParams.EMPL_NAME+'，添加成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList();
       },
       error:()=>{
-        MessageTip(addParams.EMPL_NAME+'，添加失败',2,'error');
+        commonFunction.MessageTip(addParams.EMPL_NAME+'，添加失败',2,'error');
         this.fetchList();
       }
     });
   },
   fetchResetPassword(evtName,data){
-    let listParams=objExtend({},this.state.defaultFilter);
-    listParams=objExtend(listParams,this.state.moreFilter);
-    listParams=objExtend(listParams,this.state.pagination);
+    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:'http://192.168.6.143:60005/proc/employee/resetpassword',
+      url:web_config.get_data_domain+'/proc/employee/resetpassword',
       method: 'POST',
       data:data,
-      crossOrigin: true, //跨域
+      crossOrigin:web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
-        result.data.ERROR!=0 && MessageTip(data.EMPL_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(data.EMPL_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        MessageTip(data.EMPL_NAME+'，重置密码失败',2,'error');
+        commonFunction.MessageTip(data.EMPL_NAME+'，重置密码失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -1068,25 +1051,25 @@ const Employee= React.createClass({
   componentDidMount() {
     this.fetchList();
     // 订阅 人员编辑 的事件
-    PubSub.subscribe("employeeEdit",this.fetchEdit);
+    PubSub.subscribe("Edit",this.fetchEdit);
     // 订阅 人员新增 的事件
-    PubSub.subscribe("employeeAdd",this.fetchAdd);
+    PubSub.subscribe("Add",this.fetchAdd);
     // 订阅 人员删除 的事件
-    PubSub.subscribe("employeeDelete",this.fetchDelete);
+    PubSub.subscribe("Delete",this.fetchDelete);
     // 订阅 重置密码 的事件
-    PubSub.subscribe("employeeResetPassword",this.fetchResetPassword);
+    PubSub.subscribe("ResetPassword",this.fetchResetPassword);
   },
   //这里还要加个退订事件
   filterDisplay(){
     /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="filter-content-hidden filter-content-layer"){
+    if(this.state.filterClassName=="el-display-none filter-content-layer"){
       this.setState({
-        filterClassName:"filter-content-show filter-content-layer",
+        filterClassName:"el-display-block filter-content-layer",
         icontype:'up'
       });
     }else{
       this.setState({
-        filterClassName:"filter-content-hidden filter-content-layer",
+        filterClassName:"el-display-none filter-content-layer",
         icontype:'down'
       });
     }
@@ -1097,7 +1080,7 @@ const Employee= React.createClass({
      <Row>
       <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
       <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
-      <Col span="12" className="employee-add-layer"><NewAdd/></Col>
+      <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
         <div className={this.state.filterClassName} >
           <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
@@ -1110,7 +1093,7 @@ const Employee= React.createClass({
             onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
             size="middle"
             rowKey={record => record.ID} /*指定每行的主键 不指定默认key*/
-            bordered='true'
+            bordered={true}
         />
    </div>
     );

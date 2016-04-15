@@ -44,6 +44,10 @@ const MAINBODY_CONTENT= React.createClass({
             'name': '终端管理',
             'content':'device',
             'key': '2'
+          },{
+            'name': '终端类型',
+            'content':'devtype',
+            'key': '3'
           }]
         },{
           'key': 'sub2',

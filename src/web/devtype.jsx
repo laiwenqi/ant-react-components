@@ -1,54 +1,46 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { Tree,Steps,Badge,DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
+import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm,Icon, Button,Dropdown,Popover,Select,Tabs } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
-import './device.less';
 const FormItem = Form.Item;
 const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
-const Step = Steps.Step;
-const SubMenu = Menu.SubMenu;
-const MenuItemGroup = Menu.ItemGroup;
-const TreeNode = Tree.TreeNode;
+
+//定义设备类别
+const devtype=[{ text: '应用系统', value:'SYSTEM'},
+             { text: '应用服务端', value:'SERVER'},
+             { text: '应用客户端', value:'CLIENT'},
+             { text: '服务终端', value:'TERM'}];
+
+//设备类别下拉列表
+const devtypeList=devtype.map(function(item){
+  return (<Option value={String(item.value)} >{item.text}</Option>)
+});
 
 //指定表格每列内容
 const columns = [{
-  title: '终端名',
-  dataIndex: 'DEV_NAME'
-},{
-  title: '序列号',
-  dataIndex: 'DEV_SN'
-  /* sorter: true */
-},{
-  title: '状态',
-  dataIndex: 'DEV_USE_STATE',
+  title: '终端类别',
+  dataIndex: 'DVTP_CLASS',
   render(text, row, index) {
-    switch (row.DEV_USE_STATE) {
-      case 1:
-        return (
-          <div ><Badge dot style={{ backgroundColor: '#87d068' }}/><span className="status-word">可用</span></div>
-        );
-        break;
-      case 0:
-        return (
-          <div ><Badge dot style={{ backgroundColor: '#FFA500' }}/><span className="status-word">暂停使用</span></div>
-        );
-        break;
-      case 3:
-        return (
-          <div ><Badge dot style={{ backgroundColor: '#red' }}/><span className="status-word">已报废</span></div>
-        );
-        break;
-      default:
-    }
+    return devtype.map(function(item){
+      if(item.value==row.DVTP_CLASS){
+        return (item.text);
+      }
+    });
   }
 },{
-  title: '归属组织',
-  dataIndex: 'ORG_NAME'
+  title: '类型名称',
+  dataIndex: 'DVTP_NAME'
+},{
+  title: '类型编号',
+  dataIndex: 'DVTP_CODE'
+},{
+  title: '类型描述',
+  dataIndex: 'DVTP_INFO'
 },{
   title: '操作',
   key: 'operation',
@@ -65,16 +57,16 @@ const columns = [{
 
 
 //这里是默认简易的搜索
-let SearchInput = React.createClass({
+const SearchInput = React.createClass({
   getInitialState() {
     return {
-      DEV_KEY: '',
+      FILTER_KEY: '',
       focus: false,
     };
   },
   handleInputChange(e) {
     this.setState({
-      DEV_KEY: e.target.value,
+      FILTER_KEY: e.target.value,
     });
   },
   handleFocusBlur(e) {
@@ -84,7 +76,7 @@ let SearchInput = React.createClass({
   },
   handleSearch(e) {
     let params={};
-    params.DEV_KEY=this.state.DEV_KEY.trim();
+    params.FILTER_KEY=this.state.FILTER_KEY.trim();
     params.type="defaultSearch";
     if (this.props.onSearch) {
       this.props.onSearch(params);
@@ -93,7 +85,7 @@ let SearchInput = React.createClass({
   render() {
     const btnCls = classNames({
       'ant-search-btn': true,
-      'ant-search-btn-noempty': !!this.state.DEV_KEY.trim(),
+      'ant-search-btn-noempty': !!this.state.FILTER_KEY.trim(),
     });
     const searchCls = classNames({
       'ant-search-input': true,
@@ -101,7 +93,7 @@ let SearchInput = React.createClass({
     });
     return (
       <InputGroup className={searchCls} style={this.props.style}>
-        <Input {...this.props} value={this.state.DEV_KEY} onChange={this.handleInputChange}
+        <Input {...this.props} value={this.state.FILTER_KEY} onChange={this.handleInputChange}
           onFocus={this.handleFocusBlur} onBlur={this.handleFocusBlur} />
           <div className="ant-input-group-wrap">
             <Button className={btnCls} size={this.props.size} onClick={this.handleSearch}>
@@ -144,7 +136,7 @@ const { getFieldProps } = this.props.form;
           label="选择性别："
           labelCol={{ span: 10 }}
           wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('DEV_SEX')}>
+          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
             <Option value="0">女</Option>
             <Option value="1">男</Option>
           </Select>
@@ -173,10 +165,6 @@ FilterLayer = Form.create()(FilterLayer);
 let ModalContent =React.createClass({
   getInitialState() {
     return {
-      stepCurrent:0,//步骤条已完成的步骤数
-      sureButtonWord:'下一步',
-      lastStepButtonVisible:"el-display-none",
-      stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"],
       loading:false,//确定按钮状态
       nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
       contentV:this.props.contentValue
@@ -185,53 +173,8 @@ let ModalContent =React.createClass({
   componentWillReceiveProps(){
     //每次打开还原表单的值
     if(this.props.visible==false){
-      this.setState({
-        stepCurrent:0,
-        sureButtonWord:"下一步",
-        lastStepButtonVisible:"el-display-none",
-        stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"]
-      });
       this.props.form.resetFields();
     }
-  },
-  handleNext(){
-    let i=this.state.stepCurrent;
-    this.state.stepVisible[i]="el-display-none";
-    this.state.stepVisible[i+1]="";
-    //完成了
-    if(this.state.stepCurrent>=4){
-      return;
-    }
-    if(this.state.stepCurrent==3){
-      this.setState({
-        stepCurrent:this.state.stepCurrent+1,
-        sureButtonWord:"保存",
-        lastStepButtonVisible:""
-      });
-      return;
-    }
-    this.setState({
-      stepCurrent:this.state.stepCurrent+1,
-      lastStepButtonVisible:""
-    });
-  },
-  handleBack(){
-    let i=this.state.stepCurrent;
-    this.state.stepVisible[i]="el-display-none";
-    this.state.stepVisible[i-1]="";
-    if(this.state.stepCurrent==1){
-      this.setState({
-        stepCurrent:this.state.stepCurrent-1,
-        sureButtonWord:"下一步",
-        lastStepButtonVisible:"el-display-none",
-        stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"]
-      });
-      return;
-    }
-    this.setState({
-      stepCurrent:this.state.stepCurrent-1,
-      sureButtonWord:"下一步"
-    });
   },
   handleSubmit(e) {
     e.preventDefault();
@@ -255,18 +198,15 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
-      let params=commonFunction.objExtend({DEV_ID:this.state.nochangecontentV.DEV_ID},values);
+      let params=commonFunction.objExtend({DVTP_ID:this.state.nochangecontentV.DVTP_ID},values);
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("devEdit",params);
+      PubSub.publish("devTypeEdit",params);
     });
   },
   handleCancel() {
     this.props.modalClose();
-  },
-  checkOther(rule, value, callback){
-    callback();
   },
   getValidateStatus(field) {
    const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
@@ -278,167 +218,89 @@ let ModalContent =React.createClass({
      return 'success';
    }
  },
+ checkDvtpCode(rule, value, callback){
+     if(!/^[A-Z]([0-9]|[a-zA-Z])$/.test(value)){
+       setTimeout(() => { callback(new Error('类型编号只能以大写字母开头，且是两个字符组合'))}, 800);
+       return;
+     }
+     if(!value||!value.trim()){
+         callback();
+     }else {
+       reqwest({
+         url:web_config.get_data_domain+'/proc/devtype/checkdvtpcode',
+         method: 'POST',
+         data:{
+           DVTP_CODE:value
+         },
+         crossOrigin:web_config.cross, //跨域
+         type: "json",
+         success: (result) => {
+           if(result.data.exist==1){
+             /*加延时防止闪烁*/
+             setTimeout(() => { callback(new Error('类型编号已存在'))}, 800);
+           }else{
+             setTimeout(() => {callback()}, 800);
+           }
+         },
+         error:() => {
+           setTimeout(() => {callback()}, 800);
+           callback(new Error('类型编号校验失败'));
+         }
+       });
+     }
+ },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-     const serviceList=[{
-       'key':'sub1',
-       'title':'支付',
-       'contain':[{
-         'key':'sub1-1',
-         'title':'现金支付',
-         'contain':[{
-           'key':'sub1-1-1',
-           'title':'现金交易用户'
-         }]
-       },{
-         'key':'sub1-2',
-         'title':'后台系统支付',
-         'contain':[{
-           'key':'sub1-2-1',
-           'title':'现金交易用户'
-         }]
-       }]
-     },{
-       'key':'sub2',
-       'title':'充值',
-       'contain':[{
-         'key':'sub2-1',
-         'title':'卡类售卡',
-         'contain':[{
-           'key':'sub2-1-1',
-           'title':'现金交易用户'
-         }]
-       }]
-     }];
-     const serviceListHtml=serviceList.map(function(item){
-       let type_l2=item.contain.map(function(item2){
-         let u_l3=item2.contain.map(function(item3){
-           return(
-             <Menu.Item key={item3.key}><Checkbox/>{item3.title}</Menu.Item>
-           )
-         });
-         return(
-           <SubMenu key={item2.key} title={<span><span>{item2.title}</span></span>}>
-            {u_l3}
-           </SubMenu>
-         )
-       });
-       return(
-         <SubMenu key={item.key} title={<span><span>{item.title}</span></span>}>
-            {type_l2}
-         </SubMenu>
-       )
-     });
      return (
-       <div>
-       <Steps current={this.state.stepCurrent}>
-        <Step title="基本信息" />
-        <Step title="参数"  />
-        <Step title="模块"  />
-        <Step title="文件"  />
-        <Step title="服务"  />
-      </Steps>
-      <br/>
+       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
-
-       <div className={this.state.stepVisible[0]} >
-          <FormItem
-             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;终端名："
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span: 12 }}>
-            <Input placeholder="请输入终端名"  defaultValue={this.state.contentV.DEV_NAME} style={{ width: 163 }} />
-          </FormItem>
-          <FormItem
-            label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;序列号："
-            labelCol={{ span: 8 }}
-            wrapperCol={{ span: 12 }}>
-           <Input placeholder="请输入序列号"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
-          </FormItem>
-          <FormItem
-             label="归属组织： "
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
-                 rules: [{ required: true, message: '请选择组织' },{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.ORG_ID)
-             })} style={{ width: 163 }}>
-               <Option value="1" >公交卡运营公司</Option>
-               <Option value="2" >南屏公交公司</Option>
-             </Select>
-           </FormItem>
-           <FormItem
-             label="归属系统： "
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID',{
-                 rules: [{ required: true, message: '请选择系统' },{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
-             })} style={{ width: 163 }}>
-               <Option value="1" >服务终端在线管理系统</Option>
-             </Select>
-           </FormItem>
-       </div>
-
-       <div className={this.state.stepVisible[1]} >
-           <FormItem
-             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;参数1："
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span: 12 }}>
-            <Input placeholder="请输入参数1"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
-           </FormItem>
-       </div>
-
-       <div className={this.state.stepVisible[2]} >
-           <FormItem
-             label='主板：'
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID',{
-                 rules: [{ required: true, message: '请选择系统' },{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
-             })} style={{ width: 163 }}>
-               <Option value="1" >服务终端在线管理系统</Option>
-             </Select>
-           </FormItem>
-           <FormItem
-             label='触摸屏：'
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID2',{
-                 rules: [{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
-             })} style={{ width: 163 }}>
-               <Option value="1" >--不使用该模块--</Option>
-               <Option value="2" >DAS (生产商：DSA, 型号版本：DAS)</Option>
-             </Select>
-           </FormItem>
-       </div>
-
-       <div className={this.state.stepVisible[3]} >
-       </div>
-
-       <div className={this.state.stepVisible[4]} >
-        <div className="server-left">
-          <Menu style={{ width: 100 }} mode="vertical">
-              { serviceListHtml }
-           </Menu>
-        </div>
-        <div className="server-right">
-                    <FormItem
-                      label="外部编码："
-                      labelCol={{ span: 8 }}
-                      wrapperCol={{ span: 12 }}>
-                     <Input placeholder="请输入参数1"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
-                    </FormItem>
-        </div>
-       </div>
+      <FormItem
+        label="终端类别： "
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}>
+        <Select id="select" size="large" placeholder="请选择终端类别" {...getFieldProps('DVTP_CLASS',{
+            rules: [{ required: true, message: '请选择终端类别' }],
+            initialValue:String(this.state.contentV.DVTP_CLASS)
+        })} style={{ width: 163 }}>
+          {devtypeList}
+        </Select>
+      </FormItem>
+      <FormItem
+        label="类型名称："
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span: 12 }}
+        help={isFieldValidating('DVTP_NAME') ? '校验中...' : (getFieldError('DVTP_NAME') || []).join(', ')}>
+      <Input placeholder="请输入类型名称" {...getFieldProps('DVTP_NAME',{
+          rules: [{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}],
+          initialValue:this.state.contentV.DVTP_NAME
+      })} style={{ width: 163 }}/>
+      </FormItem>
+      <FormItem
+        label="类型编号："
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span: 12 }}
+        help={isFieldValidating('DVTP_CODE') ? '校验中...' : (getFieldError('DVTP_CODE') || []).join(', ')}>
+      <Input placeholder="请输入类型编号" {...getFieldProps('DVTP_CODE',{
+          rules: [{ required: true,whitespace:true, message: '请输入类型编号' },{validator: this.checkDvtpCode}],
+          initialValue:this.state.contentV.DVTP_CODE
+      })} style={{ width: 163 }}/>
+      </FormItem>
+      <br/>
+      <FormItem
+        id="control-textarea"
+        label="类型描述："
+        labelCol={{ span: 3 }}
+        wrapperCol={{ span: 14 }}>
+        <Input type="textarea" rows="5" {...getFieldProps('DVTP_INFO',{
+            rules: [{max: 120, message: '类型描述至多为 120 个字符'}],
+            initialValue:this.state.contentV.DVTP_INFO
+        })}  style={{ width: 620 }}/>
+      </FormItem>
        <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
-            <Button type="primary" className={"ant-btn ant-btn-primary ant-btn-lg "+this.state.lastStepButtonVisible}   onClick={this.handleBack} >上一步</Button>
-            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleNext} loading={this.state.loading}>{this.state.sureButtonWord}</Button>
-       </div>
+            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
+        </div>
        </Form>
-       </div>
      )
    }
 });
@@ -466,15 +328,15 @@ const Edit = React.createClass({
   },
   handleDelete() {
     let DELETE_PARAMS={
-      DEV_ID:this.props.DEV_ID, //需要删除的ID
-      DEV_NAME:this.props.DEV_NAME //需要删除的名字
+      DVTP_ID:this.props.DVTP_ID, //需要删除的人员ID
+      DVTP_NAME:this.props.DVTP_NAME //需要删除的人员名字
     };
     confirm({
-      title: '您是否确认要删除'+DELETE_PARAMS.DEV_NAME,
+      title: '您是否确认要删除'+DELETE_PARAMS.DVTP_NAME,
       content: '',
       onOk() {
         //发布 删除 事件
-        PubSub.publish("devDelete",DELETE_PARAMS);
+        PubSub.publish("devTypeDelete",DELETE_PARAMS);
       },
       onCancel() {}
     });
@@ -486,9 +348,9 @@ const Edit = React.createClass({
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
-          width="600"
+          width="550"
           visible={this.state.visible}
-          title={'编辑终端-'+this.props.DEV_NAME}
+          title={'编辑终端类型-'+this.props.DVTP_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -524,10 +386,11 @@ const NewAdd= React.createClass({
   render() {
     return (
       <div>
-        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加终端<Icon type="plus-square" /></Button>
+        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加终端类型<Icon type="plus-square" /></Button>
         <Modal ref="modal"
+          width="550"
           visible={this.state.visible}
-          title="添加终端"
+          title="添加终端类型"
           onCancel={this.handleCancel}
           footer={null}>
           <NewAddModalContent
@@ -561,15 +424,46 @@ let NewAddModalContent =React.createClass({
       }
       let params=values;
       //发布 新增 事件
-      PubSub.publish("devAdd",params);
+      PubSub.publish("devTypeAdd",params);
       this.props.modalClose();
     });
   },
   handleCancel(){
     this.props.modalClose();
   },
-  checkOther(rule, value, callback){
+  checkDvtpName(rule, value, callback){
     callback();
+  },
+  checkDvtpCode(rule, value, callback){
+      if(!/^[A-Z]([0-9]|[a-zA-Z])$/.test(value)){
+        setTimeout(() => { callback(new Error('类型编号只能以大写字母开头，且是两个字符组合'))}, 800);
+        return;
+      }
+      if(!value||!value.trim()){
+          callback();
+      }else {
+        reqwest({
+          url:web_config.get_data_domain+'/proc/devtype/checkdvtpcode',
+          method: 'POST',
+          data:{
+            DVTP_CODE:value
+          },
+          crossOrigin:web_config.cross, //跨域
+          type: "json",
+          success: (result) => {
+            if(result.data.exist==1){
+              /*加延时防止闪烁*/
+              setTimeout(() => { callback(new Error('类型编号已存在'))}, 800);
+            }else{
+              setTimeout(() => {callback()}, 800);
+            }
+          },
+          error:() => {
+            setTimeout(() => {callback()}, 800);
+            callback(new Error('类型编号校验失败'));
+          }
+        });
+      }
   },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
@@ -577,15 +471,43 @@ let NewAddModalContent =React.createClass({
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
        <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
+         label="终端类别： "
+         labelCol={{ span: 8 }}
+         wrapperCol={{ span:15 }}>
+         <Select id="select" size="large" placeholder="请选择终端类别" {...getFieldProps('DVTP_CLASS',{
+             rules: [{ required: true, message: '请选择终端类别' }]
+         })} style={{ width: 163 }}>
+           {devtypeList}
+         </Select>
+       </FormItem>
+       <FormItem
+         label="类型名称："
          labelCol={{ span: 8 }}
          wrapperCol={{ span: 12 }}
-        //  hasFeedback
-         help={isFieldValidating('DEV_NAME') ? '校验中...' : (getFieldError('DEV_NAME') || []).join(', ')}>
-        <Input placeholder="请输入终端名"  {...getFieldProps('DEV_NAME',{
-            rules: [{ required: true,whitespace:true,message: '请输入终端名' },{validator: this.checkOperAccount}]
-        })} style={{ width: 163 }} />
-        </FormItem>
+         help={isFieldValidating('DVTP_NAME') ? '校验中...' : (getFieldError('DVTP_NAME') || []).join(', ')}>
+       <Input placeholder="请输入类型名称" {...getFieldProps('DVTP_NAME',{
+           rules: [{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}]
+       })} style={{ width: 163 }}/>
+       </FormItem>
+       <FormItem
+         label="类型编号："
+         labelCol={{ span: 8 }}
+         wrapperCol={{ span: 12 }}
+         help={isFieldValidating('DVTP_CODE') ? '校验中...' : (getFieldError('DVTP_CODE') || []).join(', ')}>
+       <Input placeholder="请输入类型编号" {...getFieldProps('DVTP_CODE',{
+           rules: [{ required: true,whitespace:true, message: '请输入类型编号' },{validator: this.checkDvtpCode}]
+       })} style={{ width: 163 }}/>
+       </FormItem>
+       <br/>
+       <FormItem
+         id="control-textarea"
+         label="类型描述："
+         labelCol={{ span: 3 }}
+         wrapperCol={{ span: 14 }}>
+         <Input type="textarea" rows="5" {...getFieldProps('DVTP_INFO',{
+             rules: [{max: 120, message: '类型描述至多为 120 个字符'}]
+         })}  style={{ width: 620 }}/>
+       </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
             <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit}>确定</Button>
@@ -600,7 +522,7 @@ NewAddModalContent = Form.create()(NewAddModalContent);
 
 
 //标签分页里面的整个内容
-const Device= React.createClass({
+const DevType= React.createClass({
    getInitialState() {
     return {
       data: [],
@@ -648,7 +570,7 @@ const Device= React.createClass({
         break;
       case 'defaultSearch': //默认搜索行为
         this.state.defaultFilter={
-          DEV_KEY:params.DEV_KEY
+          FILTER_KEY:params.FILTER_KEY
         };
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
@@ -658,7 +580,7 @@ const Device= React.createClass({
         break;
       case 'moreSearch':    //高级搜索行为
         this.state.moreFilter={
-          DEV_SEX:params.DEV_SEX
+          EMPL_SEX:params.EMPL_SEX
         };
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
@@ -681,18 +603,18 @@ const Device= React.createClass({
     }
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/devlist',
+      url:web_config.get_data_domain+'/proc/devtype/list',
       method: 'POST',
       data:params,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin: web_config.cross, //跨域
       type: "json",
       success: (result) => {
         const pagination = this.state.pagination;
-        pagination.total = result.data.O_DEVICE.count;
-        pagination.current = result.data.O_DEVICE.currentPage;
+        pagination.total = result.data.O_DEVICE_TYPE.count;
+        pagination.current = result.data.O_DEVICE_TYPE.currentPage;
         this.setState({
           loading: false,
-          data: result.data.O_DEVICE.data,
+          data: result.data.O_DEVICE_TYPE.data,
           pagination,
         });
       }
@@ -705,18 +627,18 @@ const Device= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/update',
+      url:web_config.get_data_domain+'/proc/devtype/update',
       method: 'POST',
       data:editParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin: web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip(editParams.DEV_NAME+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.DEV_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0&&commonFunction.MessageTip(editParams.DVTP_NAME+'，编辑成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.DVTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(params.DEV_NAME+'，编辑失败',2,'error');
+        commonFunction.MessageTip(params.DVTP_NAME+'，编辑失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -728,18 +650,18 @@ const Device= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/delete',
+      url:web_config.get_data_domain+'/proc/devtype/delete',
       method: 'POST',
       data:deleteParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin: web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.DEV_NAME+'，删除成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.DEV_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.DVTP_NAME+'，删除成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.DVTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(deleteParams.DEV_NAME+'，删除失败',2,'error');
+        commonFunction.MessageTip(deleteParams.DVTP_NAME+'，删除失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -748,37 +670,37 @@ const Device= React.createClass({
     let addParams=commonFunction.objExtend({},data);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/add',
+      url:web_config.get_data_domain+'/proc/devtype/add',
       method: 'POST',
       data:addParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin: web_config.cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(addParams.DEV_NAME+'，添加成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.DEV_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(addParams.DVTP_NAME+'，添加成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.DVTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList();
       },
       error:()=>{
-        commonFunction.MessageTip(addParams.DEV_NAME+'，添加失败',2,'error');
+        commonFunction.MessageTip(addParams.DVTP_NAME+'，添加失败',2,'error');
         this.fetchList();
       }
     });
   },
   componentDidMount() {
     this.fetchList();
-    // 订阅 编辑 的事件
-    PubSub.subscribe("devEdit",this.fetchEdit);
-    // 订阅 新增 的事件
-    PubSub.subscribe("devAdd",this.fetchAdd);
-    // 订阅 删除 的事件
-    PubSub.subscribe("devDelete",this.fetchDelete);
+    // 订阅 人员编辑 的事件
+    PubSub.subscribe("devTypeEdit",this.fetchEdit);
+    // 订阅 人员新增 的事件
+    PubSub.subscribe("devTypeAdd",this.fetchAdd);
+    // 订阅 人员删除 的事件
+    PubSub.subscribe("devTypeDelete",this.fetchDelete);
   },
   //这里还要加个退订事件
   filterDisplay(){
     /*高级搜索展示暂时还没加上动画*/
     if(this.state.filterClassName=="el-display-none filter-content-layer"){
       this.setState({
-        filterClassName:"filter-content-show filter-content-layer",
+        filterClassName:"el-display-block filter-content-layer",
         icontype:'up'
       });
     }else{
@@ -792,7 +714,7 @@ const Device= React.createClass({
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入搜索" onSearch={this.fetchList} /> </Col>
+      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
       <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
       <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
@@ -806,7 +728,7 @@ const Device= React.createClass({
             loading={this.state.loading}
             onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
             size="middle"
-            rowKey={record => record.ID} /*指定每行的主键 不指定默认key*/
+            rowKey={record => record.DVTP_ID} /*指定每行的主键 不指定默认key*/
             bordered={true}
         />
    </div>
@@ -816,4 +738,4 @@ const Device= React.createClass({
 
 
 
-export default Device;
+export default DevType;
