@@ -1,16 +1,46 @@
 import React from 'react';
-import { Menu, Icon ,Tabs } from 'antd';
+import { Menu, Icon ,Tabs ,Popover } from 'antd';
 
 import TabsContent from './tabscontent.jsx';
 import './mainbody.less';
 const SubMenu = Menu.SubMenu; //下级菜单
 const TabPane = Tabs.TabPane; //标签页
 
+
+
+
 /* //顶部头部组件 */
 const MAINBODY_HEADER= React.createClass({
+  getInitialState() {
+    return {
+        visible:false
+      }
+  },
+  handleVisibleChange(){
+    this.setState({
+      visible:true
+    });
+  },
   render() {
+    const content = (
+        <div>
+          <p className="loginUser-dialog-item">修改密码</p>
+          <br />
+          <p className="loginUser-dialog-item">退出登录</p>
+        </div>
+    );
     return (
-      <div id="header-wrapper"></div>
+      <div id="header-wrapper">
+
+        <Popover placement="bottomLeft" overlay={content} trigger="click" >
+          <div className="loginUser-item" >
+            欢迎您，{loginUser}
+            &nbsp;&nbsp;
+            <Icon  type="down" />
+          </div>
+       </Popover>
+
+      </div>
     )
   }
 });
@@ -19,11 +49,8 @@ const MAINBODY_HEADER= React.createClass({
 /* //主体显示数据区域组件 */
 const MAINBODY_CONTENT= React.createClass({
   getInitialState() {
-    const tabs_data =[{
-      'title':'人员管理',
-      'key':1,
-      'content':'employee'
-    }];
+    //默认首页
+    const tabs_data =defaultShouye;
     const panes = tabs_data.map(function(item){
       return (<TabPane tab={item.title} key={item.key}><TabsContent component={item.content}/></TabPane>);
     });
@@ -32,34 +59,7 @@ const MAINBODY_CONTENT= React.createClass({
         activeKey: panes[0].key,
         current: '1',
         openKeys: [],
-        menu_data: [{
-          'key': 'sub1',
-          'title': '系统管理',
-          'icon': 'laptop',
-          'contain': [{
-            'name': '人员管理',
-            'content':'employee',
-            'key': '1'
-          },{
-            'name': '终端管理',
-            'content':'device',
-            'key': '2'
-          },{
-            'name': '终端类型',
-            'content':'devtype',
-            'key': '3'
-          }]
-        },{
-          'key': 'sub2',
-          'title': '业务操作',
-          'icon': 'book',
-          'contain': []
-        },{
-          'key': 'sub3',
-          'title': '系统运维',
-          'icon': 'hdd',
-          'contain': []
-        }],
+        menu_data:mainMenu,
         panes,
       }
     },
@@ -106,7 +106,7 @@ const MAINBODY_CONTENT= React.createClass({
             }
             if (pane.key !== e.key) {
               activeKey = e.key;
-              panes.push(<TabPane tab={e.item.props.title} key={e.key}><TabsContent component={e.item.props.content}/></TabPane>);
+              panes.push(<TabPane hideCloseIcon={true} tab={e.item.props.title} key={e.key}><TabsContent component={e.item.props.content}/></TabPane>);
               exist_panes.push(e.key);
             }
           });
@@ -142,7 +142,7 @@ const MAINBODY_CONTENT= React.createClass({
         <div id="content-wrapper">
           <div id="main-body-content">
               <Tabs onChange={this.onChange} activeKey={this.state.activeKey}
-                type="editable-card" onEdit={this.onEdit}>
+                type="homePage-card" onEdit={this.onEdit}>
                 {this.state.panes}
               </Tabs>
           </div>

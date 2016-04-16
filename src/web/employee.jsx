@@ -206,23 +206,24 @@ let ModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplname',
+        url:web_config.http_request_domain+'/proc/employee/checkemplname',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_NAME:value.trim()
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('人员姓名已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
+          sethttp_request_timeout(() => {callback()}, 800);
           callback(new Error('人员姓名校验失败'));
         }
       });
@@ -238,23 +239,24 @@ let ModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplcode',
+        url:web_config.http_request_domain+'/proc/employee/checkemplcode',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_CODE:value.trim()
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('人员工号已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
+          sethttp_request_timeout(() => {callback()}, 800);
           callback(new Error('人员工号校验失败'));
         }
       });
@@ -276,23 +278,24 @@ let ModalContent =React.createClass({
       return;
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplcardcode',
+        url:web_config.http_request_domain+'/proc/employee/checkemplcardcode',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_CARD_CODE:value.trim()
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('身份卡号已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
+          sethttp_request_timeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
@@ -605,23 +608,24 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplaccount',
+        url:web_config.http_request_domain+'/proc/employee/checkemplaccount',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           OPER_ACCOUNT:value
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('用户名已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('用户名已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
+          sethttp_request_timeout(() => {callback()}, 800);
           callback(new Error('用户名校验失败'));
         }
       });
@@ -632,23 +636,24 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplname',
+        url:web_config.http_request_domain+'/proc/employee/checkemplname',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_NAME:value
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('人员姓名已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
+          sethttp_request_timeout(() => {callback()}, 800);
           callback(new Error('人员姓名校验失败'));
         }
       });
@@ -659,23 +664,24 @@ let NewAddModalContent =React.createClass({
         callback();
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplcode',
+        url:web_config.http_request_domain+'/proc/employee/checkemplcode',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_CODE:value
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('人员工号已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback()}, 800);
+          sethttp_request_timeout(() => {callback()}, 800);
           callback(new Error('人员工号校验失败'));
         }
       });
@@ -692,23 +698,24 @@ let NewAddModalContent =React.createClass({
       return;
     }else {
       reqwest({
-        url:web_config.get_data_domain+'/proc/employee/checkemplcardcode',
+        url:web_config.http_request_domain+'/proc/employee/checkemplcardcode',
         method: 'POST',
+        timeout :web_config.http_request_timeout,
         data:{
           EMPL_CARD_CODE:value
         },
-        crossOrigin:web_config.cross, //跨域
+        crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+            sethttp_request_timeout(() => { callback(new Error('身份卡号已存在'))}, 800);
           }else{
-            setTimeout(() => {callback()}, 800);
+            sethttp_request_timeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
+          sethttp_request_timeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
@@ -941,10 +948,11 @@ const Employee= React.createClass({
     }
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/employee/list',
+      url:web_config.http_request_domain+'/proc/employee/list',
       method: 'POST',
+      timeout :web_config.http_request_timeout,
       data:params,
-      crossOrigin: web_config.cross, //跨域
+      crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         const pagination = this.state.pagination;
@@ -957,6 +965,12 @@ const Employee= React.createClass({
           data: result.data.O_T_EMPLOYEE.data,
           pagination,
         });
+      },
+      error:()=>{
+        commonFunction.MessageTip('获取数据失败',2,'error');
+        this.setState({
+          loading: false
+        });
       }
     });
   },
@@ -967,10 +981,11 @@ const Employee= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/employee/update',
+      url:web_config.http_request_domain+'/proc/employee/update',
       method: 'POST',
+      timeout :web_config.http_request_timeout,
       data:editParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin:web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0&&commonFunction.MessageTip(editParams.EMPL_NAME+'，编辑成功',2,'success');
@@ -990,10 +1005,11 @@ const Employee= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/employee/delete',
+      url:web_config.http_request_domain+'/proc/employee/delete',
       method: 'POST',
+      timeout :web_config.http_request_timeout,
       data:deleteParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin:web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.EMPL_NAME+'，删除成功',2,'success');
@@ -1010,10 +1026,11 @@ const Employee= React.createClass({
     let addParams=commonFunction.objExtend({},data);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/employee/add',
+      url:web_config.http_request_domain+'/proc/employee/add',
       method: 'POST',
+      timeout :web_config.http_request_timeout,
       data:addParams,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin:web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(addParams.EMPL_NAME+'，添加成功',2,'success');
@@ -1032,10 +1049,11 @@ const Employee= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/employee/resetpassword',
+      url:web_config.http_request_domain+'/proc/employee/resetpassword',
       method: 'POST',
+      timeout :web_config.http_request_timeout,
       data:data,
-      crossOrigin:web_config.cross, //跨域
+      crossOrigin:web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(data.EMPL_NAME+'，重置密码成功',2,'success');
@@ -1092,7 +1110,7 @@ const Employee= React.createClass({
             loading={this.state.loading}
             onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
             size="middle"
-            rowKey={record => record.ID} /*指定每行的主键 不指定默认key*/
+            rowKey={record => record.EMPL_ID} /*指定每行的主键 不指定默认key*/
             bordered={true}
         />
    </div>
