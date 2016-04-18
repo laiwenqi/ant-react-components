@@ -12,7 +12,7 @@ const confirm = Modal.confirm;
 
 
 //定义归属模块
-const guishumokuai=[{ text: '主板', value:'0'}];
+let guishumokuai;
 
 
 //指定表格每列内容
@@ -208,7 +208,7 @@ let ModalContent =React.createClass({
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      const guishumokuaiList=guishumokuai.map(function(item){
-       return (<Option value={String(item.value)} >{item.text}</Option>)
+       return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
      });
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
@@ -217,9 +217,9 @@ let ModalContent =React.createClass({
         label="归属模块： "
         labelCol={{ span: 8 }}
         wrapperCol={{ span:15 }}>
-        <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('DVML_ID',{
+        <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('MDDF_ID',{
             rules: [{ required: true, message: '请选择归属模块' }],
-            initialValue:String(this.state.contentV.DVML_ID)
+            initialValue:String(this.state.contentV.MDDF_ID)
         })} style={{ width: 163 }}>
         { guishumokuaiList }
         </Select>
@@ -426,7 +426,7 @@ let NewAddModalContent =React.createClass({
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      const guishumokuaiList=guishumokuai.map(function(item){
-       return (<Option value={String(item.value)} >{item.text}</Option>)
+       return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
      });
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
@@ -435,7 +435,7 @@ let NewAddModalContent =React.createClass({
          label="归属模块： "
          labelCol={{ span: 8 }}
          wrapperCol={{ span:15 }}>
-         <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('DVML_ID',{
+         <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('MDDF_ID',{
              rules: [{ required: true, message: '请选择归属模块' }]
          })} style={{ width: 163 }}>
          { guishumokuaiList }
@@ -609,11 +609,12 @@ const DeviceConfig= React.createClass({
           return;
         }
         const pagination = this.state.pagination;
-        pagination.total = result.data.O_DEV_CONFIG.count;
-        pagination.current = result.data.O_DEV_CONFIG.currentPage;
+        pagination.total = result.data.O_DEV_FITTINGS.count;
+        pagination.current = result.data.O_DEV_FITTINGS.currentPage;
+        guishumokuai=result.data.O_DEV_FITTINGS_MODULE;
         this.setState({
           loading: false,
-          data: result.data.O_DEV_CONFIG.data,
+          data: result.data.O_DEV_FITTINGS.data,
           pagination,
         });
       },

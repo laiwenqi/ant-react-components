@@ -31,8 +31,8 @@ const MAINBODY_HEADER= React.createClass({
     );
     return (
       <div id="header-wrapper">
-
-        <Popover placement="bottomLeft" overlay={content} trigger="click" >
+      
+        <Popover placement="bottomLeft" overlay={content} trigger="hover" >
           <div className="loginUser-item" >
             欢迎您，{loginUser}
             &nbsp;&nbsp;
