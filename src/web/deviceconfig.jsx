@@ -12,6 +12,8 @@ const confirm = Modal.confirm;
 
 
 
+//页面名称
+const PageName='deviceconfig';
 
 //指定表格每列内容
 const columns = [{
@@ -48,6 +50,15 @@ const SearchInput = React.createClass({
       FILTER_KEY: '',
       focus: false,
     };
+  },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleReset);
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
   },
   handleInputChange(e) {
     this.setState({
@@ -100,6 +111,17 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
@@ -112,29 +134,11 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
-        <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
-          </Select>
-        </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+      <Form  inline onSubmit={this.handleSubmit} >
+
+      </Form>
     );
   }
 });
@@ -187,7 +191,7 @@ let ModalContent =React.createClass({
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("deviceconfigEdit",params);
+      PubSub.publish(PageName+"Edit",params);
     });
   },
   handleCancel() {
@@ -246,7 +250,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span:15 }}
         help={isFieldValidating('DVCF_CODE') ? '校验中...' : (getFieldError('DVCF_CODE') || []).join(', ')}>
         <Input placeholder="请输入配置名" {...getFieldProps('DVCF_CODE',{
-            rules: [{ required: true,whitespace:true, message: '请输入配置名' },{validator: this.checkDvcfCode}],
+            rules: [{ max: 24, message: '配置名至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入配置名' },{validator: this.checkDvcfCode}],
             initialValue:this.state.contentV.DVCF_CODE
         })} style={{ width: 163 }}/>
       </FormItem>
@@ -256,7 +260,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span:15 }}
         help={isFieldValidating('DVCF_NAME') ? '校验中...' : (getFieldError('DVCF_NAME') || []).join(', ')}>
         <Input placeholder="请输入文件名称" {...getFieldProps('DVCF_NAME',{
-            rules: [{ required: true,whitespace:true, message: '请输入文件名称' },{validator: this.checkDvcfName}],
+            rules: [{ max: 64, message: '文件名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入文件名称' },{validator: this.checkDvcfName}],
             initialValue:this.state.contentV.DVCF_NAME
         })} style={{ width: 163 }}/>
       </FormItem>
@@ -265,7 +269,8 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入文件MD5" {...getFieldProps('DVCF_MD5',{
-          rules: [{ required: true,whitespace:true, message: '请输入文件MD5' },{validator: this.checkDvcfMd5}],
+          rules: [{ pattern: /(^[0-9a-zA-Z]{16}$|^[0-9a-zA-Z]{32}$)/, message: '请输入正确的文件MD5' },{ required: true,whitespace:true, message: '请输入文件MD5' }],
+          validateTrigger:'onBlur',
           initialValue:this.state.contentV.DVCF_MD5
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -327,13 +332,13 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
+        <a type="primary" onClick={this.showModal} {...this.props}>修改/查看</a>
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'编辑-'+this.props.DVCF_NAME}
+          title={'修改-'+this.props.DVCF_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -453,7 +458,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span:15 }}
          help={isFieldValidating('DVCF_CODE') ? '校验中...' : (getFieldError('DVCF_CODE') || []).join(', ')}>
          <Input placeholder="请输入配置名" {...getFieldProps('DVCF_CODE',{
-             rules: [{ required: true,whitespace:true, message: '请输入配置名' },{validator: this.checkDvcfCode}]
+             rules: [{ max: 24, message: '配置名至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入配置名' },{validator: this.checkDvcfCode}]
          })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -462,7 +467,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span:15 }}
          help={isFieldValidating('DVCF_NAME') ? '校验中...' : (getFieldError('DVCF_NAME') || []).join(', ')}>
          <Input placeholder="请输入文件名称" {...getFieldProps('DVCF_NAME',{
-             rules: [{ required: true,whitespace:true, message: '请输入文件名称' },{validator: this.checkDvcfName}]
+             rules: [{ max: 64, message: '文件名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入文件名称' },{validator: this.checkDvcfName}]
          })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -470,7 +475,8 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 8 }}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入文件MD5" {...getFieldProps('DVCF_MD5',{
-           rules: [{ required: true,whitespace:true, message: '请输入文件MD5' },{validator: this.checkDvcfMd5}]
+           rules: [{ pattern: /(^[0-9a-zA-Z]{16}$|^[0-9a-zA-Z]{32}$)/, message: '请输入正确的文件MD5' },{ required: true,whitespace:true, message: '请输入文件MD5' }],
+           validateTrigger:'onBlur'
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -505,11 +511,16 @@ const DeviceConfig= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -533,19 +544,13 @@ const DeviceConfig= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          FILTER_KEY:params.FILTER_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -553,9 +558,7 @@ const DeviceConfig= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          EMPL_SEX:params.EMPL_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -672,39 +675,65 @@ const DeviceConfig= React.createClass({
   },
   componentDidMount() {
     this.fetchList();
-    // 订阅 人员编辑 的事件
-    PubSub.subscribe("deviceconfigEdit",this.fetchEdit);
-    // 订阅 人员新增 的事件
-    PubSub.subscribe("deviceconfigAdd",this.fetchAdd);
-    // 订阅 人员删除 的事件
-    PubSub.subscribe("deviceconfigDelete",this.fetchDelete);
+    // 订阅 编辑 的事件
+    PubSub.subscribe(PageName+"Edit",this.fetchEdit);
+    // 订阅 新增 的事件
+    PubSub.subscribe(PageName+"Add",this.fetchAdd);
+    // 订阅 删除 的事件
+    PubSub.subscribe(PageName+"Delete",this.fetchDelete);
   },
-  //这里还要加个退订事件
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+"Edit");
+    PubSub.unsubscribe(PageName+"Add");
+    PubSub.unsubscribe(PageName+"Delete");
+  },
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
-      this.setState({
-        filterClassName:"el-display-block filter-content-layer",
-        icontype:'up'
-      });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+    this.setState({
+      gaojisousuoVislble:!this.state.gaojisousuoVislble
+    });
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish(PageName+"Reset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
+      <Col span="4"><SearchInput placeholder="输入编号或全名搜索" onSearch={this.fetchList} /> </Col>
+
+      <Col span="1" style={{marginLeft:-20}}>
+        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+      </Col>
       <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}
@@ -712,7 +741,7 @@ const DeviceConfig= React.createClass({
             loading={this.state.loading}
             onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
             size="middle"
-            rowKey={record => record.DVCF_ID} /*指定每行的主键 不指定默认key*/
+            rowKey={record => record.MHPY_ID} /*指定每行的主键 不指定默认key*/
             bordered={true}
         />
    </div>

@@ -23,7 +23,9 @@ const MAINBODY_HEADER= React.createClass({
   },
   render() {
     const content = (
-        <div>
+          <div>
+          <p className="loginUser-dialog-item">修改信息</p>
+          <br />
           <p className="loginUser-dialog-item">修改密码</p>
           <br />
           <p className="loginUser-dialog-item">退出登录</p>
@@ -31,8 +33,8 @@ const MAINBODY_HEADER= React.createClass({
     );
     return (
       <div id="header-wrapper">
-      
-        <Popover placement="bottomLeft" overlay={content} trigger="hover" >
+
+        <Popover placement="bottom" overlay={content} trigger="hover" >
           <div className="loginUser-item" >
             欢迎您，{loginUser}
             &nbsp;&nbsp;
@@ -155,7 +157,8 @@ const MAINBODY_CONTENT= React.createClass({
               onOpen={this.onToggle}
               onClose={this.onToggle}
               selectedKeys={[this.state.current]}
-              mode="inline" >
+              mode="inline"
+              theme="dark" >
             { menu_content }
             </Menu>
           </div>

@@ -10,6 +10,10 @@ const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
 
+//页面名称
+const PageName='businessandpayer';
+
+
 //定义类型
 const utype=[{ text: '商户', value:'T_MERCHANT'},
              { text: '支付方', value:'T_PAYMENT'}];
@@ -62,6 +66,15 @@ const SearchInput = React.createClass({
       focus: false,
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleReset);
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
+  },
   handleInputChange(e) {
     this.setState({
       FILTER_KEY: e.target.value,
@@ -113,6 +126,17 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
@@ -125,29 +149,25 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
+      <Form  inline onSubmit={this.handleSubmit} >
         <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
+          label="类型：">
+          <Select placeholder="请选择类型" style={{ width: 120 }} {...getFieldProps('FILTER_MHPY_TYPE')}>
+            { utypeList }
           </Select>
         </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+        <br/>
+        <FormItem
+          label="行业：">
+          <Input placeholder="请输入行业搜索" {...getFieldProps('FILTER_MHPY_INDUSTRY')} style={{ width: 300 }}/>
+        </FormItem>
+        <div style={{ textAlign: 'right' }}>
+            <Button size="small" type="primary" htmlType="submit">搜索</Button>
+            <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
+        </div>
+      </Form>
     );
   }
 });
@@ -200,7 +220,7 @@ let ModalContent =React.createClass({
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("businessandpayerEdit",params);
+      PubSub.publish(PageName+"Edit",params);
     });
   },
   handleCancel() {
@@ -295,7 +315,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span:15 }}
         help={isFieldValidating('MHPY_CODE') ? '校验中...' : (getFieldError('MHPY_CODE') || []).join(', ')}>
         <Input placeholder="请输入编号" {...getFieldProps('MHPY_CODE',{
-            rules: [{ required: true,whitespace:true, message: '请输入编号' },{validator: this.checkMhpyCode}],
+            rules: [{ max: 24, message: '编号至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入编号' },{validator: this.checkMhpyCode}],
             initialValue:this.state.contentV.MHPY_CODE
         })} style={{ width: 163 }}/>
       </FormItem>
@@ -316,7 +336,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span: 12 }}
         help={isFieldValidating('MHPY_FULL_NAME') ? '校验中...' : (getFieldError('MHPY_FULL_NAME') || []).join(', ')}>
       <Input placeholder="请输入全名" {...getFieldProps('MHPY_FULL_NAME',{
-          rules: [{ required: true,whitespace:true, message: '请输入全名' },{validator: this.checkMhpyFullName}],
+          rules: [{ max: 128, message: '全名至多为 128 个字符' },{ required: true,whitespace:true, message: '请输入全名' },{validator: this.checkMhpyFullName}],
           initialValue:this.state.contentV.MHPY_FULL_NAME
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -325,7 +345,7 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入行业" {...getFieldProps('MHPY_INDUSTRY',{
-          rules: [{ required: true,whitespace:true, message: '请输入行业' }],
+          rules: [{ max: 24, message: '行业至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入行业' }],
           initialValue:this.state.contentV.MHPY_INDUSTRY
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -335,7 +355,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span: 12 }}
         help={isFieldValidating('MHPY_LINKMAN') ? '校验中...' : (getFieldError('MHPY_LINKMAN') || []).join(', ')}>
       <Input placeholder="请输入联系人" {...getFieldProps('MHPY_LINKMAN',{
-          rules: [],
+          rules: [{ max: 64, message: '联系人至多为 64 个字符' }],
           initialValue:this.state.contentV.MHPY_LINKMAN
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -344,7 +364,7 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入联系电话" {...getFieldProps('MHPY_PHONE',{
-          rules: [],
+          rules: [{ max: 24, message: '电话至多为 24 个字符' }],
           initialValue:this.state.contentV.MHPY_PHONE
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -353,7 +373,8 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8 }}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入移动电话" {...getFieldProps('MHPY_MOBILE',{
-          rules: [],
+          rules: [{ pattern: /^(0|86|17951)?(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$/, message: '请输入正确的移动电话' }],
+          validateTrigger:'onBlur',
           initialValue:this.state.contentV.MHPY_MOBILE
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -397,7 +418,7 @@ const Edit = React.createClass({
       content: '',
       onOk() {
         //发布 删除 事件
-        PubSub.publish("businessandpayerDelete",DELETE_PARAMS);
+        PubSub.publish(PageName+"Delete",DELETE_PARAMS);
       },
       onCancel() {}
     });
@@ -405,13 +426,13 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
+        <a type="primary" onClick={this.showModal} {...this.props}>修改/查看</a>
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'编辑-'+this.props.MHPY_FULL_NAME}
+          title={'修改-'+this.props.MHPY_FULL_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -485,7 +506,7 @@ let NewAddModalContent =React.createClass({
       }
       let params=values;
       //发布 新增 事件
-      PubSub.publish("businessandpayerAdd",params);
+      PubSub.publish(PageName+"Add",params);
       this.props.modalClose();
     });
   },
@@ -563,7 +584,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span:15 }}
          help={isFieldValidating('MHPY_CODE') ? '校验中...' : (getFieldError('MHPY_CODE') || []).join(', ')}>
          <Input placeholder="请输入编号" {...getFieldProps('MHPY_CODE',{
-             rules: [{ required: true,whitespace:true, message: '请输入编号' },{validator: this.checkMhpyCode}]
+             rules: [{ max: 24, message: '编号至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入编号' },{validator: this.checkMhpyCode}]
          })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -582,7 +603,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('MHPY_FULL_NAME') ? '校验中...' : (getFieldError('MHPY_FULL_NAME') || []).join(', ')}>
        <Input placeholder="请输入全名" {...getFieldProps('MHPY_FULL_NAME',{
-           rules: [{ required: true,whitespace:true, message: '请输入全名' },{validator: this.checkMhpyFullName}]
+           rules: [{ max: 128, message: '全名至多为 128 个字符' },{ required: true,whitespace:true, message: '请输入全名' },{validator: this.checkMhpyFullName}]
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -590,7 +611,7 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 8 }}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入行业" {...getFieldProps('MHPY_INDUSTRY',{
-           rules: [{ required: true,whitespace:true, message: '请输入行业' }]
+           rules: [{ max: 24, message: '行业至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入行业' }]
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -599,7 +620,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('MHPY_LINKMAN') ? '校验中...' : (getFieldError('MHPY_LINKMAN') || []).join(', ')}>
        <Input placeholder="请输入联系人" {...getFieldProps('MHPY_LINKMAN',{
-           rules: []
+           rules: [{ max: 64, message: '联系人至多为 64 个字符' }]
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -607,7 +628,7 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 8 }}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入联系电话" {...getFieldProps('MHPY_PHONE',{
-           rules: []
+           rules: [{ max: 24, message: '电话至多为 24 个字符' }]
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -615,7 +636,8 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 8 }}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入移动电话" {...getFieldProps('MHPY_MOBILE',{
-           rules: []
+         rules: [{ pattern: /^(0|86|17951)?(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$/, message: '请输入正确的移动电话' }],
+         validateTrigger:'onBlur',
        })} style={{ width: 163 }}/>
        </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
@@ -641,11 +663,16 @@ const BusinessAndPayer= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -669,19 +696,13 @@ const BusinessAndPayer= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          FILTER_KEY:params.FILTER_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -689,9 +710,7 @@ const BusinessAndPayer= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          EMPL_SEX:params.EMPL_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -808,39 +827,69 @@ const BusinessAndPayer= React.createClass({
   },
   componentDidMount() {
     this.fetchList();
-    // 订阅 人员编辑 的事件
-    PubSub.subscribe("businessandpayerEdit",this.fetchEdit);
-    // 订阅 人员新增 的事件
-    PubSub.subscribe("businessandpayerAdd",this.fetchAdd);
-    // 订阅 人员删除 的事件
-    PubSub.subscribe("businessandpayerDelete",this.fetchDelete);
+    // 订阅 编辑 的事件
+    PubSub.subscribe(PageName+"Edit",this.fetchEdit);
+    // 订阅 新增 的事件
+    PubSub.subscribe(PageName+"Add",this.fetchAdd);
+    // 订阅 删除 的事件
+    PubSub.subscribe(PageName+"Delete",this.fetchDelete);
   },
-  //这里还要加个退订事件
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+"Edit");
+    PubSub.unsubscribe(PageName+"Add");
+    PubSub.unsubscribe(PageName+"Delete");
+  },
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
-      this.setState({
-        filterClassName:"el-display-block filter-content-layer",
-        icontype:'up'
-      });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+    this.setState({
+      gaojisousuoVislble:!this.state.gaojisousuoVislble
+    });
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish(PageName+"Reset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
+      <Col span="4"><SearchInput placeholder="输入编号或全名搜索" onSearch={this.fetchList} /> </Col>
+      <Col span="2" style={{marginLeft:-10}}>
+        <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
+            <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+        </Popover>
+      </Col>
+      <Col span="1" style={{marginLeft:-20}}>
+        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+      </Col>
       <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}

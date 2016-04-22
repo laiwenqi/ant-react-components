@@ -21,6 +21,18 @@ const commonFunction={
         break;
     }
   },
+  //过滤参数中的干扰项
+  filterParamsObj:function(obj){
+    let newObj={};
+    let ganrao=['pageSize','current'];
+    for(let tem in obj){
+      if(ganrao.indexOf(tem)>-1){
+        continue;
+      }
+      newObj[tem]=obj[tem];
+    }
+    return newObj;
+  },
   //把http request对象参数合并
   objExtend:function(obj1,obj2){
     for(let tem in obj2){

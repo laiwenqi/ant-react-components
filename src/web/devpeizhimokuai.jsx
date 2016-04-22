@@ -1,36 +1,62 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { InputNumber,Select,Row,Col,Form,Checkbox,Table,Modal,Input,Popconfirm,Icon,Button,Popover } from 'antd';
+import { QueueAnim,Breadcrumb,InputNumber,Select,Row,Col,Form,Checkbox,Table,Modal,Input,Popconfirm,Icon,Button,Popover } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
+import DevModel from '../web/devmodel.jsx';
 const FormItem = Form.Item;
 const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
-
+const Option = Select.Option;
 //页面名称
-const PageName='devfittings';
+const PageName='devpeizhimokuai'+Date.parse(new Date());
+
+//定义配选类型
+const devpeixuantype=[
+  { text: '标配', value:'1'},
+  { text: '标配兼容', value:'2'},
+  { text: '选配', value:'3'},
+  { text: '选配兼容', value:'4'}];
+
+  //配选类型下拉列表
+const devpeixuantypeList=devpeixuantype.map(function(item){
+    return (<Option value={String(item.value)} >{item.text}</Option>)
+});
 
 
-//定义归属模块
-let guishumokuai;
+//定义模块
+let devmokuai;
 
+//定义配件
+let devpeijian;
 
 //指定表格每列内容
 const columns = [{
-  title: '归属模块',
-  dataIndex: 'MDDF_NAME'
+  title: '模块名',
+  dataIndex: 'DVML_NAME'
 },{
-  title: '配件名',
+  title: '通道数',
+  dataIndex: 'DVML_CHANNEL_NUM'
+},{
+  title: '配选类型',
+  dataIndex: 'DVML_TYPE',
+  render(text, row, index) {
+    for(let i in devpeixuantype){
+        if(devpeixuantype[i].value==row.DVML_TYPE){
+          return devpeixuantype[i].text;
+          break;
+        }
+    }
+  }
+},{
+  title: '可选配件',
   dataIndex: 'DVFT_NAME'
 },{
-  title: '生产商',
-  dataIndex: 'DVFT_PRODUCER'
-},{
-  title: '型号版本',
-  dataIndex: 'DVFT_VERSION'
+  title: '描述',
+  dataIndex: 'DVML_DESC'
 },{
   title: '操作',
   key: 'operation',
@@ -57,6 +83,10 @@ const SearchInput = React.createClass({
   componentDidMount() {
     // 订阅 重置 的事件
     PubSub.subscribe(PageName+"Reset",this.handleReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
   },
   handleReset(){
     this.setState({
@@ -138,32 +168,9 @@ let FilterLayer = React.createClass({
   },
   render() {
     const { getFieldProps } = this.props.form;
-    const guishumokuaiList=guishumokuai.map(function(item){
-      return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
-    });
     return (
         <Form inline  onSubmit={this.handleSubmit} >
-          <FormItem
-            label="归属模块：">
-            <Select placeholder="请选择归属模块" style={{ width: 120 }} {...getFieldProps('FILTER_MDDF_ID')}>
-              { guishumokuaiList }
-            </Select>
-          </FormItem>
-          <br/>
-          <FormItem
-            label="&nbsp;&nbsp;&nbsp;&nbsp;生产商：">
-            <Input placeholder="请输入生产商搜索" {...getFieldProps('FILTER_DVFT_PRODUCER')} style={{ width: 300 }}/>
-          </FormItem>
-          <br/>
-          <FormItem
-            label="型号版本：">
-            <Input placeholder="请输入型号版本搜索" {...getFieldProps('FILTER_DVFT_VERSION')} style={{ width: 300 }}/>
-          </FormItem>
-          <br/>
-          <div style={{ textAlign: 'right' }}>
-              <Button size="small" type="primary" htmlType="submit">搜索</Button>
-              <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
-          </div>
+
         </Form>
     );
   }
@@ -182,8 +189,33 @@ let ModalContent =React.createClass({
     return {
       loading:false,//确定按钮状态
       nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
-      contentV:this.props.contentValue
+      contentV:this.props.contentValue,
+      peijianType:([2,4].indexOf(this.props.contentValue.DVML_TYPE)>-1?true:false),
+      fittingslist:[]
     }
+  },
+  componentDidMount() {
+    reqwest({
+      url:web_config.http_request_domain+'/proc/devmodel/fittingslist',
+      method: 'POST',
+      timeout :web_config.http_request_timeout,
+      data:{MDDF_ID:this.props.contentValue.DVML_NO},
+      crossOrigin: web_config.http_request_cross, //跨域
+      type: "json",
+      success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          return;
+        }
+        this.setState({
+          fittingslist: result.data.T_DEVICE_FITTINGS
+        });
+      },
+      error:()=>{
+        commonFunction.MessageTip('获取配件选项数据失败',2,'error');
+      }
+    });
+
   },
   componentWillReceiveProps(){
     //每次打开还原表单的值
@@ -195,7 +227,7 @@ let ModalContent =React.createClass({
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
-        console.log('表单没通过验证');
+        console.log(errors);
         return;
       }
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
@@ -213,8 +245,21 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
-      let params=commonFunction.objExtend({DVFT_ID:this.state.nochangecontentV.DVFT_ID},values);
+      let EDIT_PARAMS={
+         DVML_ID:this.state.nochangecontentV.DVML_ID, //需要的ID
+         DVML_NAME:this.state.nochangecontentV.DVML_NAME //需要的名字
+      };
+      let params=commonFunction.objExtend(EDIT_PARAMS,values);
       //发布 编辑 事件
+      params.DVFT_ID=JSON.stringify(params.DVFT_ID);
+      for(let i in devmokuai){
+        if(devmokuai[i].MDDF_ID==params.MDDF_ID){
+          params.DVML_NAME=devmokuai[i].MDDF_NAME;
+          params.DVML_NO=devmokuai[i].MDDF_NO;
+          break;
+        }
+      }
+
       this.state.loading=true;
       this.props.modalClose();
       PubSub.publish(PageName+"Edit",params);
@@ -222,6 +267,52 @@ let ModalContent =React.createClass({
   },
   handleCancel() {
     this.props.modalClose();
+  },
+  handleSelectPeiXuanType(value){
+
+    /* 这里需要改 */
+    let contentVChange;
+    contentVChange=commonFunction.objExtend({},this.state.contentV);
+    contentVChange.DVFT_ID=[''];
+    /* 这里需要改 */
+
+    this.setState({
+      contentV:contentVChange,
+      peijianType:(['2','4'].indexOf(value)>-1?true:false)
+    });
+
+
+  },
+  handleSelectMoKuai(value){
+    reqwest({
+      url:web_config.http_request_domain+'/proc/devmodel/fittingslist',
+      method: 'POST',
+      timeout :web_config.http_request_timeout,
+      data:{MDDF_ID:value},
+      crossOrigin: web_config.http_request_cross, //跨域
+      type: "json",
+      success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          return;
+        }
+
+        /* 这里需要改 */
+        let contentVChange;
+        contentVChange=commonFunction.objExtend({},this.state.contentV);
+        contentVChange.DVFT_ID=['']
+        /* 这里需要改 */
+
+        this.setState({
+          contentV:contentVChange,
+          fittingslist: result.data.T_DEVICE_FITTINGS
+        });
+
+      },
+      error:()=>{
+        commonFunction.MessageTip('获取配件选项数据失败',2,'error');
+      }
+    });
   },
   getValidateStatus(field) {
    const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
@@ -234,88 +325,82 @@ let ModalContent =React.createClass({
    }
  },
   render() {
-     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-     const guishumokuaiList=guishumokuai.map(function(item){
-       return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
-     });
+      let fittingsList = [];
+      let peijianComponent;
+      let peijianType=this.state.peijianType;
+      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+      const devmokuaiList=devmokuai.map(function(item){
+        return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
+      });
+      fittingsList=this.state.fittingslist.map(function(item){
+        return (<Option value={String(item.DVFT_ID)} >{item.DVFT_NAME}</Option>)
+      });
+
+      for(let i=0;i<this.state.contentV.DVFT_ID.length;i++){
+            this.state.contentV.DVFT_ID[i]=String(this.state.contentV.DVFT_ID[i]);
+      }
+
+
+
+      if(peijianType==true){
+          peijianComponent = (
+                <FormItem label="配件：">
+                  <Select multiple={true} size="large"  placeholder="请选择配件" {...getFieldProps('DVFT_ID',{
+                      rules: [{ required: true, message: '请选择配件',type:'array' }],
+                      initialValue:this.state.contentV.DVFT_ID
+                  })} style={{ width: 400 }}>
+                   { fittingsList }
+                  </Select>
+                </FormItem>
+           );
+       }else{
+         peijianComponent = (
+            <FormItem label="配件：">
+              <Select multiple={false} size="large"  placeholder="请选择配件" {...getFieldProps('DVFT_ID',{
+                  rules: [{ required: true, message: '请选择配件' }],
+                  initialValue:this.state.contentV.DVFT_ID[0]
+              })} style={{ width: 400 }}>
+               { fittingsList }
+              </Select>
+            </FormItem>
+          );
+       }
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
        <Form inline form={this.props.form}>
-      <FormItem
-        label="归属模块： "
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span:15 }}>
-        <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('MDDF_ID',{
-            rules: [{ required: true, message: '请选择归属模块' }],
-            initialValue:String(this.state.contentV.MDDF_ID)
-        })} style={{ width: 163 }}>
-        { guishumokuaiList }
-        </Select>
-      </FormItem>
-      <FormItem
-        label="&nbsp;&nbsp;&nbsp;&nbsp;配件名： "
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span:15 }}
-        help={isFieldValidating('DVFT_NAME') ? '校验中...' : (getFieldError('DVFT_NAME') || []).join(', ')}>
-        <Input placeholder="请输入配件名" {...getFieldProps('DVFT_NAME',{
-            rules: [{ required: true,whitespace:true, message: '请输入配件名' },{validator: this.checkDvftName}],
-            initialValue:this.state.contentV.DVFT_NAME
-        })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        label="&nbsp;&nbsp;&nbsp;&nbsp;生产商："
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 12 }}>
-      <Input placeholder="请输入生产商" {...getFieldProps('DVFT_PRODUCER',{
-          rules: [{ required: true,whitespace:true, message: '请输入生产商' }],
-          initialValue:this.state.contentV.DVFT_PRODUCER
-      })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        label="型号版本："
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 12 }}>
-      <Input placeholder="请输入型号版本" {...getFieldProps('DVFT_VERSION',{
-          rules: [{ required: true,whitespace:true, message: '请输入型号版本' }],
-          initialValue:this.state.contentV.DVFT_VERSION
-      })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;规格："
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 12 }}>
-      <Input placeholder="请输入规格" {...getFieldProps('DVFT_STANDARD',{
-          rules: [{ required: true,whitespace:true, message: '请输入规格' }],
-          initialValue:this.state.contentV.DVFT_STANDARD
-      })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;参数："
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 12 }}>
-      <Input placeholder="请输入参数" {...getFieldProps('DVFT_PARAM',{
-          rules: [{ required: true,whitespace:true, message: '请输入参数' }],
-          initialValue:this.state.contentV.DVFT_PARAM
-      })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        label="&nbsp;&nbsp;&nbsp;&nbsp;通道数："
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 12 }}>
-      <InputNumber min={0} placeholder="请输入通道数" {...getFieldProps('DVFT_CHANNEL_NUM',{
-          initialValue:this.state.contentV.DVFT_CHANNEL_NUM || 0
-      })} style={{ width: 163 }}/>
-      </FormItem>
-      <FormItem
-        id="control-textarea"
-        label="描述："
-        labelCol={{ span: 3 }}
-        wrapperCol={{ span: 14 }}>
-        <Input type="textarea" rows="5" {...getFieldProps('DVFT_DESC',{
-            rules: [{max: 124, message: '描述至多为 124 个字符'}],
-            initialValue:this.state.contentV.DVFT_DESC
-        })}  style={{ width: 620 }}/>
-      </FormItem>
+         <FormItem label="模块：">
+           <Select id="select" size="large" placeholder="请选择模块" {...getFieldProps('MDDF_ID',{
+               rules: [{ required: true, message: '请选择模块' }],
+               initialValue:String(this.state.contentV.DVML_NO),
+               onChange:this.handleSelectMoKuai
+           })} style={{ width: 163 }}>
+           { devmokuaiList }
+           </Select>
+         </FormItem>
+         <FormItem label="配选类型：">
+           <Select id="select" size="large"  placeholder="请选择配选类型" {...getFieldProps('DVML_TYPE',{
+               rules: [{ required: true, message: '请选择配选类型' }],
+               initialValue:String(this.state.contentV.DVML_TYPE),
+               onChange:this.handleSelectPeiXuanType
+           })} style={{ width: 163 }}>
+           { devpeixuantypeList }
+           </Select>
+         </FormItem>
+         { peijianComponent }
+         <FormItem label="通道数：">
+           <InputNumber min={0}  placeholder="请填写通道数" {...getFieldProps('DVML_CHANNEL_NUM',{
+               initialValue:this.state.contentV.DVML_CHANNEL_NUM
+           })} style={{ width: 163 }}>
+           </InputNumber>
+         </FormItem>
+         <FormItem
+           id="control-textarea"
+           label="&nbsp;&nbsp;&nbsp;&nbsp;描述：">
+           <Input type="textarea" rows="5" {...getFieldProps('DVML_DESC',{
+               rules: [{max: 128, message: '描述至多为 128 个字符'}],
+               initialValue:this.state.contentV.DVML_DESC
+           })}   style={{ width: 400 }}/>
+         </FormItem>
        <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
             <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
@@ -348,11 +433,11 @@ const Edit = React.createClass({
   },
   handleDelete() {
     let DELETE_PARAMS={
-      DVFT_ID:this.props.DVFT_ID, //需要删除的ID
-      DVFT_NAME:this.props.DVFT_NAME //需要删除的名字
+      DVML_ID:this.props.DVML_ID, //需要删除的ID
+      DVML_NAME:this.props.DVML_NAME //需要删除的名字
     };
     confirm({
-      title: '您是否确认要删除'+DELETE_PARAMS.DVFT_NAME,
+      title: '您是否确认要删除'+DELETE_PARAMS.DVML_NAME,
       content: '',
       onOk() {
         //发布 删除 事件
@@ -370,7 +455,7 @@ const Edit = React.createClass({
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'修改-'+this.props.DVFT_NAME}
+          title={'修改-'+this.props.DVML_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -406,11 +491,11 @@ const NewAdd= React.createClass({
   render() {
     return (
       <div>
-        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加配件<Icon type="plus-square" /></Button>
+        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加模块<Icon type="plus-square" /></Button>
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title="添加配件"
+          title="添加模块"
           onCancel={this.handleCancel}
           footer={null}>
           <NewAddModalContent
@@ -427,6 +512,8 @@ const NewAdd= React.createClass({
 let NewAddModalContent =React.createClass({
   getInitialState() {
     return {
+      peijianType:false,
+      fittingslist:[]
     }
   },
   componentWillReceiveProps(){
@@ -443,6 +530,14 @@ let NewAddModalContent =React.createClass({
         return;
       }
       let params=values;
+      params.DVFT_ID=JSON.stringify(params.DVFT_ID);
+      for(let i in devmokuai){
+        if(devmokuai[i].MDDF_ID==params.MDDF_ID){
+          params.DVML_NAME=devmokuai[i].MDDF_NAME;
+          params.DVML_NO=devmokuai[i].MDDF_NO;
+          break;
+        }
+      }
       //发布 新增 事件
       PubSub.publish(PageName+"Add",params);
       this.props.modalClose();
@@ -451,81 +546,115 @@ let NewAddModalContent =React.createClass({
   handleCancel(){
     this.props.modalClose();
   },
+  handleSelectPeiXuanType(value){
+    /* 这里需要改 */
+    let contentVChange;
+    contentVChange=commonFunction.objExtend({},this.state.contentV);
+    contentVChange.DVFT_ID=[''];
+    /* 这里需要改 */
+
+    this.setState({
+      contentV:contentVChange,
+      peijianType:(['2','4'].indexOf(value)>-1?true:false)
+    });
+
+  },
+  handleSelectMoKuai(value){
+    reqwest({
+      url:web_config.http_request_domain+'/proc/devmodel/fittingslist',
+      method: 'POST',
+      timeout :web_config.http_request_timeout,
+      data:{MDDF_ID:value},
+      crossOrigin: web_config.http_request_cross, //跨域
+      type: "json",
+      success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          return;
+        }
+
+        /* 这里需要改 */
+        let contentVChange;
+        contentVChange=commonFunction.objExtend({},this.state.contentV);
+        contentVChange.DVFT_ID=['']
+        /* 这里需要改 */
+
+        this.setState({
+          contentV:contentVChange,
+          fittingslist: result.data.T_DEVICE_FITTINGS
+        });
+
+      },
+      error:()=>{
+        commonFunction.MessageTip('获取配件选项数据失败',2,'error');
+      }
+    });
+  },
   render() {
+     let fittingsList = [];
+     let peijianComponent;
+     let peijianType=this.state.peijianType;
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-     const guishumokuaiList=guishumokuai.map(function(item){
+     const devmokuaiList=devmokuai.map(function(item){
        return (<Option value={String(item.MDDF_ID)} >{item.MDDF_NAME}</Option>)
      });
+     fittingsList=this.state.fittingslist.map(function(item){
+       return (<Option value={String(item.DVFT_ID)} >{item.DVFT_NAME}</Option>)
+     });
+     if(peijianType==true){
+         peijianComponent = (
+               <FormItem label="配件：">
+                 <Select multiple={true} size="large"  placeholder="请选择配件" {...getFieldProps('DVFT_ID',{
+                     rules: [{ required: true, message: '请选择配件',type:'array' }]
+                 })} style={{ width: 400 }}>
+                  { fittingsList }
+                 </Select>
+               </FormItem>
+          );
+      }else{
+        peijianComponent = (
+           <FormItem label="配件：">
+             <Select multiple={false} size="large"  placeholder="请选择配件" {...getFieldProps('DVFT_ID',{
+                 rules: [{ required: true, message: '请选择配件' }]
+             })} style={{ width: 400 }}>
+              { fittingsList }
+             </Select>
+           </FormItem>
+         );
+      }
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
+       /* 配件下拉 列表 动态加载！*/
        <Form inline form={this.props.form}>
-       <FormItem
-         label="归属模块： "
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span:15 }}>
-         <Select id="select" size="large" placeholder="请选择归属模块" {...getFieldProps('MDDF_ID',{
-             rules: [{ required: true, message: '请选择归属模块' }]
+       <FormItem label="模块：">
+         <Select id="select" size="large" placeholder="请选择模块" {...getFieldProps('MDDF_ID',{
+             rules: [{ required: true, message: '请选择模块' }],
+             onChange:this.handleSelectMoKuai
          })} style={{ width: 163 }}>
-         { guishumokuaiList }
+         { devmokuaiList }
          </Select>
        </FormItem>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;配件名： "
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span:15 }}
-         help={isFieldValidating('DVFT_NAME') ? '校验中...' : (getFieldError('DVFT_NAME') || []).join(', ')}>
-         <Input placeholder="请输入配件名" {...getFieldProps('DVFT_NAME',{
-             rules: [{ required: true,whitespace:true, message: '请输入配件名' },{validator: this.checkDvftName}]
-         })} style={{ width: 163 }}/>
+       <FormItem label="配选类型：">
+         <Select id="select" size="large"  placeholder="请选择配选类型" {...getFieldProps('DVML_TYPE',{
+             rules: [{ required: true, message: '请选择配选类型' }],
+             onChange:this.handleSelectPeiXuanType
+         })} style={{ width: 163 }}>
+         { devpeixuantypeList }
+         </Select>
        </FormItem>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;生产商："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入生产商" {...getFieldProps('DVFT_PRODUCER',{
-           rules: [{ required: true,whitespace:true, message: '请输入生产商' }]
-       })} style={{ width: 163 }}/>
-       </FormItem>
-       <FormItem
-         label="型号版本："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入型号版本" {...getFieldProps('DVFT_VERSION',{
-           rules: [{ required: true,whitespace:true, message: '请输入型号版本' }]
-       })} style={{ width: 163 }}/>
-       </FormItem>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;规格："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入规格" {...getFieldProps('DVFT_STANDARD',{
-           rules: [{ required: true,whitespace:true, message: '请输入规格' }]
-       })} style={{ width: 163 }}/>
-       </FormItem>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;参数："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-       <Input placeholder="请输入参数" {...getFieldProps('DVFT_PARAM',{
-           rules: [{ required: true,whitespace:true, message: '请输入参数' }]
-       })} style={{ width: 163 }}/>
-       </FormItem>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;通道数："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}>
-       <InputNumber min={0} placeholder="请输入通道数" {...getFieldProps('DVFT_CHANNEL_NUM',{
-           initialValue: 0
-       })} style={{ width: 163 }}/>
+       { peijianComponent }
+       <FormItem label="通道数：">
+         <InputNumber min={0}  placeholder="请填写通道数" {...getFieldProps('DVML_CHANNEL_NUM',{
+             initialValue:0
+         })} style={{ width: 163 }}>
+         </InputNumber>
        </FormItem>
        <FormItem
          id="control-textarea"
-         label="描述："
-         labelCol={{ span: 3 }}
-         wrapperCol={{ span: 14 }}>
-         <Input type="textarea" rows="5" {...getFieldProps('DVFT_DESC',{
-             rules: [{max: 124, message: '描述至多为 124 个字符'}]
-         })}  style={{ width: 620 }}/>
+         label="&nbsp;&nbsp;&nbsp;&nbsp;描述：">
+         <Input type="textarea" rows="5" {...getFieldProps('DVML_DESC',{
+             rules: [{max: 128, message: '描述至多为 128 个字符'}]
+         })}   style={{ width: 400 }}/>
        </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
@@ -559,7 +688,10 @@ const DeviceFittings= React.createClass({
          // showSizeChanger :true
        },
        loading: false,
-       gaojisousuoVislble:false
+       gaojisousuoVislble:false,
+       Return:{
+         visible:false
+       }
      };
    },
   handleTableChange(pagination, filters, sorter) {
@@ -617,9 +749,10 @@ const DeviceFittings= React.createClass({
       default:
         params=commonFunction.objExtend(params,this.state.pagination);
     }
+    params=commonFunction.objExtend(params,this.props);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/devfittings/list',
+      url:web_config.http_request_domain+'/proc/devmodel/modulelist',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:params,
@@ -634,12 +767,12 @@ const DeviceFittings= React.createClass({
           return;
         }
         const pagination = this.state.pagination;
-        pagination.total = result.data.O_DEV_FITTINGS.count;
-        pagination.current = result.data.O_DEV_FITTINGS.currentPage;
-        guishumokuai=result.data.O_DEV_FITTINGS_MODULE;
+        pagination.total = result.data.O_DEVICE_MODULE.count;
+        pagination.current = result.data.O_DEVICE_MODULE.currentPage;
+        devmokuai=result.data.O_MODULE_DEFINE;
         this.setState({
           loading: false,
-          data: result.data.O_DEV_FITTINGS.data,
+          data: result.data.O_DEVICE_MODULE.data,
           pagination,
         });
       },
@@ -652,25 +785,26 @@ const DeviceFittings= React.createClass({
     });
   },
   fetchEdit(evtName,data){
+    console.log(evtName);
     let editParams=commonFunction.objExtend({},data);
     let listParams=commonFunction.objExtend({},this.state.defaultFilter);
     listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/devfittings/update',
+      url:web_config.http_request_domain+'/proc/devmodel/moduleupdate',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:editParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip(editParams.DVFT_NAME+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.DVFT_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0&&commonFunction.MessageTip(editParams.DVML_NAME+'，修改成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.DVML_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(params.DVFT_NAME+'，编辑失败',2,'error');
+        commonFunction.MessageTip(editParams.DVML_NAME+'，修改失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -682,40 +816,40 @@ const DeviceFittings= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/devfittings/delete',
+      url:web_config.http_request_domain+'/proc/devmodel/moduledelete',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:deleteParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.DVFT_NAME+'，删除成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.DVFT_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.DVML_NAME+'，删除成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.DVML_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(deleteParams.DVFT_NAME+'，删除失败',2,'error');
+        commonFunction.MessageTip(deleteParams.DVML_NAME+'，删除失败',2,'error');
         this.fetchList(listParams);
       }
     });
   },
   fetchAdd(evtName,data){
-    let addParams=commonFunction.objExtend({},data);
+    let addParams=commonFunction.objExtend(data,this.props);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/devfittings/add',
+      url:web_config.http_request_domain+'/proc/devmodel/moduleadd',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:addParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(addParams.DVFT_NAME+'，添加成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.DVFT_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(this.props.DVTP_NAME+'，添加成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(this.props.DVTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList();
       },
       error:()=>{
-        commonFunction.MessageTip(addParams.DVFT_NAME+'，添加失败',2,'error');
+        commonFunction.MessageTip(this.props.DVML_NAME+'，添加失败',2,'error');
         this.fetchList();
       }
     });
@@ -767,34 +901,50 @@ const DeviceFittings= React.createClass({
       current:1
     });
   },
+  handleRetrun(){
+    /* 暂时在这里退订，但是组件还没有销毁 */
+    PubSub.unsubscribe(PageName+'Edit');
+    PubSub.unsubscribe(PageName+'Add');
+    PubSub.unsubscribe(PageName+'Delete');
+
+    this.setState({
+      Return:{
+        visible:true
+      }
+    });
+  },
   render() {
+    if(this.state.Return.visible==true){
+      return (
+        <DevModel/>
+      );
+    }
     const FilterLayerContent= (
       <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
     );
     return (
       <div>
-       <Row>
-        <Col span="4"><SearchInput placeholder="输入配件名搜索" onSearch={this.fetchList} /> </Col>
-        <Col span="2" style={{marginLeft:-10}}>
-          <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
-              <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
-          </Popover>
-        </Col>
-        <Col span="1" style={{marginLeft:-20}}>
-          <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
-        </Col>
-        <Col span="12" className="table-add-layer"><NewAdd/></Col>
-       </Row>
+      <QueueAnim duration={[700,700]}>
+      <div key="div1">
+           <Row>
+            <Col span="5"><span className="peizhimokuai-title"> {this.props.DVTP_NAME} - {this.props.DVMD_VER} - 模块列表</span></Col>
+            <Col span="3"><div onClick={this.handleRetrun} className="tip-button"><span className="icon-toinstlist"></span>返回终端型号版本列表</div></Col>
+            <Col span="12" className="table-add-layer"><NewAdd/></Col>
+           </Row>
+       </div>
         <div className="margin-top-10"></div>
-        <Table columns={columns}
-            dataSource={this.state.data}
-            pagination={this.state.pagination}
-            loading={this.state.loading}
-            onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
-            size="middle"
-            rowKey={record => record.DVFT_ID} /*指定每行的主键 不指定默认key*/
-            bordered={true}
-        />
+        <div key="div2">
+            <Table columns={columns}
+                dataSource={this.state.data}
+                pagination={this.state.pagination}
+                loading={this.state.loading}
+                onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
+                size="middle"
+                rowKey={record => record.DVML_ID} /*指定每行的主键 不指定默认key*/
+                bordered={true}
+            />
+        </div>
+        </QueueAnim>
    </div>
     );
   }

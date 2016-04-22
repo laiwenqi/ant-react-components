@@ -1,7 +1,7 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm,Icon,Button,Dropdown,Popover,Select } from 'antd';
+import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,Input,Popconfirm,Icon,Button,Dropdown,Popover,Select } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
@@ -28,7 +28,10 @@ const columns = [{
   sorter: true
 },{
   title: '联系电话',
-  dataIndex: 'EMPL_MOBILE'
+  dataIndex: 'EMPL_MOBILE',
+  render(text, row, index) {
+    return row.EMPL_MOBILE==''?'暂无':row.EMPL_MOBILE;
+  }
 },{
   title: '操作',
   key: 'operation',
@@ -51,6 +54,19 @@ const SearchInput = React.createClass({
       FILTER_KEY: '',
       focus: false,
     };
+  },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe("employeeReset",this.handleReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe('employeeReset');
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
   },
   handleInputChange(e) {
     this.setState({
@@ -103,6 +119,17 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe("employeeReset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe("employeeReset");
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
@@ -115,29 +142,44 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
+    const organizationList=organization.map(function(item){
+      return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
+    });
+    const roleList=role.map(function(item){
+      return (<Option value={String(item.ROLE_ID)} >{item.ROLE_NAME}</Option>)
+    });
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
-        <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
-          </Select>
-        </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+      <div>
+        <Form inline  onSubmit={this.handleSubmit} >
+          <FormItem
+            label="选择性别：">
+            <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('FILTER_EMPL_SEX')}>
+              <Option value="0">女</Option>
+              <Option value="1">男</Option>
+            </Select>
+          </FormItem>
+          <br/>
+          <FormItem
+            label="选择组织：">
+            <Select placeholder="请选择组织" style={{ width: 120 }} {...getFieldProps('FILTER_ORG_ID')}>
+              { organizationList }
+            </Select>
+          </FormItem>
+          <br/>
+          <FormItem
+            label="选择角色：">
+            <Select placeholder="请选择角色" style={{ width: 120 }} {...getFieldProps('FILTER_ROLE_ID')}>
+              { roleList }
+            </Select>
+          </FormItem>
+          <br/>
+          <div style={{ textAlign: 'right' }}>
+              <Button size="small" type="primary" htmlType="submit">搜索</Button>
+              <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
+          </div>
+        </Form>
+        </div>
     );
   }
 });
@@ -187,9 +229,14 @@ let ModalContent =React.createClass({
          return;
        }
       let params=commonFunction.objExtend({EMPL_ID:this.state.nochangecontentV.EMPL_ID},values);
-      //发布 编辑 事件
+      if(params.EMPL_BIRTHDAY!=null){
+        params.EMPL_BIRTHDAY=commonFunction.formatTime(params.EMPL_BIRTHDAY,'yyyy-MM-dd');
+      }else{
+        params.EMPL_BIRTHDAY='';
+      }
       this.state.loading=true;
       this.props.modalClose();
+      //发布 编辑 事件
       PubSub.publish("Edit",params);
     });
   },
@@ -217,13 +264,13 @@ let ModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback()}, 800);
+          setTimeout(() => {callback()}, 800);
           callback(new Error('人员姓名校验失败'));
         }
       });
@@ -250,13 +297,13 @@ let ModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('人员工号已存在'))}, 800);
+            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback()}, 800);
+          setTimeout(() => {callback()}, 800);
           callback(new Error('人员工号校验失败'));
         }
       });
@@ -289,19 +336,16 @@ let ModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
+          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
-  },
-  checkOther(rule, value, callback){
-    callback();
   },
   getValidateStatus(field) {
    const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
@@ -336,7 +380,7 @@ let ModalContent =React.createClass({
           wrapperCol={{ span: 12 }}
           help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
         <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
-            rules: [{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}],
+            rules: [{ max: 24, message: '人员姓名至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}],
             initialValue:this.state.contentV.EMPL_NAME
         })} style={{ width: 163 }}/>
        </FormItem>
@@ -346,7 +390,7 @@ let ModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
        <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
-           rules: [{ required: true,whitespace:true, message: '请输入工号' },{validator: this.checkEmplCode}],
+           rules: [{ max: 24, message: '人员工号至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入工号' },{validator: this.checkEmplCode}],
            initialValue:this.state.contentV.EMPL_CODE
        })} style={{ width: 163 }}/>
       </FormItem>
@@ -356,7 +400,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span:15 }}
         help={isFieldValidating('EMPL_CARD_CODE') ? '校验中...' : (getFieldError('EMPL_CARD_CODE') || []).join(', ')}>
         <Input placeholder="请输入身份卡号" {...getFieldProps('EMPL_CARD_CODE',{
-            rules: [{validator: this.checkEmplCardCode}],
+            rules: [{ max: 24, message: '身份卡号至多为 24 个字符' },{validator: this.checkEmplCardCode}],
             initialValue:this.state.contentV.EMPL_CARD_CODE
         })} style={{ width: 163 }}/>
       </FormItem>
@@ -411,7 +455,6 @@ let ModalContent =React.createClass({
        labelCol={{ span: 8 }}
        wrapperCol={{ span:12 }}>
        <DatePicker {...getFieldProps('EMPL_BIRTHDAY',{
-           rules: [{validator: this.checkOther}],
            initialValue:this.state.contentV.EMPL_BIRTHDAY
        })} style={{ width: 163 }} />
      </FormItem>
@@ -420,7 +463,8 @@ let ModalContent =React.createClass({
        labelCol={{ span: 8}}
        wrapperCol={{ span: 12 }}>
      <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
-         rules: [{ type: 'email', message: '请输入正确的邮箱' },{validator: this.checkOther}],
+         rules: [{ max: 124, message: '电子邮箱至多为 124 个字符' },{ type: 'email', message: '请输入正确的邮箱' },{validator: this.checkOther}],
+         validateTrigger:'onBlur',
          initialValue:this.state.contentV.EMPL_EMAIL
      })} style={{ width: 163 }}/>
       </FormItem>
@@ -429,7 +473,8 @@ let ModalContent =React.createClass({
         labelCol={{ span: 8}}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入手机号码" {...getFieldProps('EMPL_MOBILE',{
-          rules: [{validator: this.checkOther}],
+          rules: [{ pattern: /^(0|86|17951)?(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$/, message: '请输入正确的手机号码' }],
+          validateTrigger:'onBlur',
           initialValue:this.state.contentV.EMPL_MOBILE
       })} style={{ width: 163 }}/>
        </FormItem>
@@ -438,7 +483,8 @@ let ModalContent =React.createClass({
          labelCol={{ span: 8}}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入办公电话" {...getFieldProps('EMPL_OFFICE_PHONE',{
-           rules: [{validator: this.checkOther}],
+           rules: [{ pattern: /^(^0\\d{2}-?\\d{8}$)|(^0\\d{3}-?\\d{7}$)|(^\\(0\\d{2}\\)-?\\d{8}$)|(^\\(0\\d{3}\\)-?\\d{7}$)$/, message: '请输入正确的办公电话' }],
+           validateTrigger:'onBlur',
            initialValue:this.state.contentV.EMPL_OFFICE_PHONE
        })} style={{ width: 163 }}/>
         </FormItem>
@@ -447,7 +493,7 @@ let ModalContent =React.createClass({
           labelCol={{ span:4}}
           wrapperCol={{ span: 12 }}>
         <Input placeholder="请输入住址" {...getFieldProps('EMPL_ADDRESS',{
-            rules: [{validator: this.checkOther}],
+            rules: [{ max: 124, message: '住址至多为 124 个字符' }],
             initialValue:this.state.contentV.EMPL_ADDRESS
         })} style={{ width: 405 }} />
          </FormItem>
@@ -514,7 +560,7 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
+        <a type="primary" onClick={this.showModal} {...this.props}>修改/查看</a>
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
           <span className="ant-divider"></span>
@@ -522,7 +568,7 @@ const Edit = React.createClass({
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'编辑人员-'+this.props.EMPL_NAME}
+          title={'修改信息-'+this.props.EMPL_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -596,6 +642,11 @@ let NewAddModalContent =React.createClass({
       }
       let params=values;
       //发布 新增 事件
+      if(params.EMPL_BIRTHDAY!=null){
+        params.EMPL_BIRTHDAY=commonFunction.formatTime(params.EMPL_BIRTHDAY,'yyyy-MM-dd');
+      }else{
+        params.EMPL_BIRTHDAY='';
+      }
       PubSub.publish("Add",params);
       this.props.modalClose();
     });
@@ -619,13 +670,13 @@ let NewAddModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('用户名已存在'))}, 800);
+            setTimeout(() => { callback(new Error('用户名已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback()}, 800);
+          setTimeout(() => {callback()}, 800);
           callback(new Error('用户名校验失败'));
         }
       });
@@ -647,13 +698,13 @@ let NewAddModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('人员姓名已存在'))}, 800);
+            setTimeout(() => { callback(new Error('人员姓名已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback()}, 800);
+          setTimeout(() => {callback()}, 800);
           callback(new Error('人员姓名校验失败'));
         }
       });
@@ -675,13 +726,13 @@ let NewAddModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('人员工号已存在'))}, 800);
+            setTimeout(() => { callback(new Error('人员工号已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback()}, 800);
+          setTimeout(() => {callback()}, 800);
           callback(new Error('人员工号校验失败'));
         }
       });
@@ -709,19 +760,16 @@ let NewAddModalContent =React.createClass({
         success: (result) => {
           if(result.data.exist==1){
             /*加延时防止闪烁*/
-            sethttp_request_timeout(() => { callback(new Error('身份卡号已存在'))}, 800);
+            setTimeout(() => { callback(new Error('身份卡号已存在'))}, 800);
           }else{
-            sethttp_request_timeout(() => {callback()}, 800);
+            setTimeout(() => {callback()}, 800);
           }
         },
         error:() => {
-          sethttp_request_timeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
+          setTimeout(() => {callback(new Error('身份卡号校验失败'))}, 800);
         }
       });
     }
-  },
-  checkOther(rule, value, callback){
-    callback();
   },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
@@ -741,7 +789,7 @@ let NewAddModalContent =React.createClass({
         //  hasFeedback
          help={isFieldValidating('OPER_ACCOUNT') ? '校验中...' : (getFieldError('OPER_ACCOUNT') || []).join(', ')}>
         <Input placeholder="请输入用户名"  {...getFieldProps('OPER_ACCOUNT',{
-            rules: [{ required: true,whitespace:true,message: '请输入用户名' },{validator: this.checkOperAccount}]
+            rules: [{ max: 24, message: '用户名至多为 24 个字符' },{ required: true,whitespace:true,message: '请输入用户名' },{validator: this.checkOperAccount}]
         })} style={{ width: 163 }} />
         </FormItem>
         <FormItem
@@ -750,7 +798,7 @@ let NewAddModalContent =React.createClass({
           wrapperCol={{ span: 12 }}
           help={isFieldValidating('EMPL_NAME') ? '校验中...' : (getFieldError('EMPL_NAME') || []).join(', ')}>
         <Input placeholder="请输入姓名" {...getFieldProps('EMPL_NAME',{
-            rules: [{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}]
+            rules: [{ max: 24, message: '人员姓名至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入姓名' },{validator: this.checkEmplName}]
         })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -759,7 +807,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('EMPL_CODE') ? '校验中...' : (getFieldError('EMPL_CODE') || []).join(', ')}>
        <Input placeholder="请输入人员工号" {...getFieldProps('EMPL_CODE',{
-           rules: [{ required: true,whitespace:true, message: '请输入人员工号' },{validator: this.checkEmplCode}]
+           rules: [{ max: 24, message: '人员工号至多为 24 个字符' },{ required: true,whitespace:true, message: '请输入人员工号' },{validator: this.checkEmplCode}]
        })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
@@ -768,7 +816,7 @@ let NewAddModalContent =React.createClass({
         wrapperCol={{ span:15 }}
         help={isFieldValidating('EMPL_CARD_CODE') ? '校验中...' : (getFieldError('EMPL_CARD_CODE') || []).join(', ')}>
         <Input placeholder="请输入身份卡号" {...getFieldProps('EMPL_CARD_CODE',{
-            rules: [{validator: this.checkEmplCardCode}]
+            rules: [{ max: 24, message: '身份卡号至多为 24 个字符' },{validator: this.checkEmplCardCode}]
         })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
@@ -826,7 +874,8 @@ let NewAddModalContent =React.createClass({
        labelCol={{ span: 8}}
        wrapperCol={{ span: 12 }}>
      <Input placeholder="请输入电子邮箱" {...getFieldProps('EMPL_EMAIL',{
-         rules: [{ type: 'email', message: '请输入正确的邮箱' },{validator: this.checkOther}]
+         rules: [{ max: 124, message: '电子邮箱至多为 124 个字符' },{ type: 'email', message: '请输入正确的邮箱' }],
+         validateTrigger:'onBlur'
      })} style={{ width: 163 }}/>
       </FormItem>
       <FormItem
@@ -834,7 +883,8 @@ let NewAddModalContent =React.createClass({
         labelCol={{ span: 8}}
         wrapperCol={{ span: 12 }}>
       <Input placeholder="请输入手机号码" {...getFieldProps('EMPL_MOBILE',{
-          rules: [{validator: this.checkOther}]
+        rules: [{ pattern: /^(0|86|17951)?(13[0-9]|15[012356789]|17[678]|18[0-9]|14[57])[0-9]{8}$/, message: '请输入正确的手机号码' }],
+        validateTrigger:'onBlur'
       })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -842,7 +892,8 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 8}}
          wrapperCol={{ span: 12 }}>
        <Input placeholder="请输入办公电话" {...getFieldProps('EMPL_OFFICE_PHONE',{
-           rules: [{validator: this.checkOther}]
+         rules: [{ pattern: /^(^0\\d{2}-?\\d{8}$)|(^0\\d{3}-?\\d{7}$)|(^\\(0\\d{2}\\)-?\\d{8}$)|(^\\(0\\d{3}\\)-?\\d{7}$)$/, message: '请输入正确的办公电话' }],
+         validateTrigger:'onBlur'
        })} style={{ width: 163 }}/>
         </FormItem>
         <FormItem
@@ -850,7 +901,7 @@ let NewAddModalContent =React.createClass({
           labelCol={{ span:4}}
           wrapperCol={{ span: 12 }}>
         <Input placeholder="请输入住址" {...getFieldProps('EMPL_ADDRESS',{
-            rules: [{validator: this.checkOther}]
+             rules: [{ max: 124, message: '住址至多为 124 个字符' }]
         })} style={{ width: 405 }} />
          </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
@@ -876,11 +927,16 @@ const Employee= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -904,19 +960,13 @@ const Employee= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          FILTER_KEY:params.FILTER_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -924,9 +974,7 @@ const Employee= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          EMPL_SEX:params.EMPL_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -944,7 +992,7 @@ const Employee= React.createClass({
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         break;
       default:
-        params=commonFunction.objExtend(params,this.state.pagination);
+        params=commonFunction.objExtend({},params);
     }
     this.setState({ loading: true });
     reqwest({
@@ -1024,6 +1072,9 @@ const Employee= React.createClass({
   },
   fetchAdd(evtName,data){
     let addParams=commonFunction.objExtend({},data);
+    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
       url:web_config.http_request_domain+'/proc/employee/add',
@@ -1035,11 +1086,11 @@ const Employee= React.createClass({
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(addParams.EMPL_NAME+'，添加成功',2,'success');
         result.data.ERROR!=0 && commonFunction.MessageTip(addParams.EMPL_NAME+'，'+result.data.MSG,2,'error');
-        this.fetchList();
+        this.fetchList(listParams);
       },
       error:()=>{
         commonFunction.MessageTip(addParams.EMPL_NAME+'，添加失败',2,'error');
-        this.fetchList();
+        this.fetchList(listParams);
       }
     });
   },
@@ -1073,36 +1124,67 @@ const Employee= React.createClass({
     // 订阅 人员新增 的事件
     PubSub.subscribe("Add",this.fetchAdd);
     // 订阅 人员删除 的事件
-    PubSub.subscribe("Delete",this.fetchDelete);
+      PubSub.subscribe("Delete",this.fetchDelete);
     // 订阅 重置密码 的事件
     PubSub.subscribe("ResetPassword",this.fetchResetPassword);
   },
-  //这里还要加个退订事件
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe('Edit');
+    PubSub.unsubscribe('Add');
+    PubSub.unsubscribe('Delete');
+    PubSub.unsubscribe('ResetPassword');
+  },
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
       this.setState({
-        filterClassName:"el-display-block filter-content-layer",
-        icontype:'up'
+        gaojisousuoVislble:!this.state.gaojisousuoVislble
       });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish("employeeReset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
+      <Col span="4"><SearchInput placeholder="输入用户名或姓名搜索" onSearch={this.fetchList} /> </Col>
+      <Col span="2" style={{marginLeft:-10}}>
+        <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
+            <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+        </Popover>
+      </Col>
+      <Col span="1" style={{marginLeft:-20}}>
+        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+      </Col>
       <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}

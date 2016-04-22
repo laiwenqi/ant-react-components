@@ -10,6 +10,10 @@ const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
 
+//页面名称
+const PageName='devtype';
+
+
 //定义设备类别
 const devtype=[{ text: '应用系统', value:'SYSTEM'},
              { text: '应用服务端', value:'SERVER'},
@@ -64,6 +68,19 @@ const SearchInput = React.createClass({
       focus: false,
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
+  },
   handleInputChange(e) {
     this.setState({
       FILTER_KEY: e.target.value,
@@ -115,6 +132,17 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
@@ -127,29 +155,20 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
+      <Form  inline onSubmit={this.handleSubmit} >
         <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
+          label="终端类别：">
+          <Select placeholder="请选择终端类别" style={{ width: 120 }} {...getFieldProps('FILTER_DVTP_CLASS')}>
+            { devtypeList }
           </Select>
         </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+        <div style={{ textAlign: 'right' }}>
+            <Button size="small" type="primary" htmlType="submit">搜索</Button>
+            <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
+        </div>
+      </Form>
     );
   }
 });
@@ -202,7 +221,7 @@ let ModalContent =React.createClass({
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("devTypeEdit",params);
+      PubSub.publish(PageName+"Edit",params);
     });
   },
   handleCancel() {
@@ -276,7 +295,7 @@ let ModalContent =React.createClass({
         wrapperCol={{ span: 12 }}
         help={isFieldValidating('DVTP_NAME') ? '校验中...' : (getFieldError('DVTP_NAME') || []).join(', ')}>
       <Input placeholder="请输入类型名称" {...getFieldProps('DVTP_NAME',{
-          rules: [{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}],
+          rules: [{ max: 64, message: '类型名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}],
           initialValue:this.state.contentV.DVTP_NAME
       })} style={{ width: 163 }}/>
       </FormItem>
@@ -297,9 +316,9 @@ let ModalContent =React.createClass({
         labelCol={{ span: 3 }}
         wrapperCol={{ span: 14 }}>
         <Input type="textarea" rows="5" {...getFieldProps('DVTP_INFO',{
-            rules: [{max: 120, message: '类型描述至多为 120 个字符'}],
+            rules: [{max: 128, message: '类型描述至多为 128 个字符'}],
             initialValue:this.state.contentV.DVTP_INFO
-        })}  style={{ width: 620 }}/>
+        })}   style={{ width: 620 }}/>
       </FormItem>
        <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
@@ -341,7 +360,7 @@ const Edit = React.createClass({
       content: '',
       onOk() {
         //发布 删除 事件
-        PubSub.publish("devTypeDelete",DELETE_PARAMS);
+        PubSub.publish(PageName+"Delete",DELETE_PARAMS);
       },
       onCancel() {}
     });
@@ -349,13 +368,13 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
+        <a type="primary" onClick={this.showModal} {...this.props}>修改/查看</a>
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'编辑终端类型-'+this.props.DVTP_NAME}
+          title={'修改-'+this.props.DVTP_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -429,7 +448,7 @@ let NewAddModalContent =React.createClass({
       }
       let params=values;
       //发布 新增 事件
-      PubSub.publish("devTypeAdd",params);
+      PubSub.publish(PageName+"Add",params);
       this.props.modalClose();
     });
   },
@@ -492,7 +511,7 @@ let NewAddModalContent =React.createClass({
          wrapperCol={{ span: 12 }}
          help={isFieldValidating('DVTP_NAME') ? '校验中...' : (getFieldError('DVTP_NAME') || []).join(', ')}>
        <Input placeholder="请输入类型名称" {...getFieldProps('DVTP_NAME',{
-           rules: [{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}]
+           rules: [{ max: 64, message: '类型名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入类型名称' },{validator: this.checkDvtpName}]
        })} style={{ width: 163 }}/>
        </FormItem>
        <FormItem
@@ -511,7 +530,7 @@ let NewAddModalContent =React.createClass({
          labelCol={{ span: 3 }}
          wrapperCol={{ span: 14 }}>
          <Input type="textarea" rows="5" {...getFieldProps('DVTP_INFO',{
-             rules: [{max: 120, message: '类型描述至多为 120 个字符'}]
+             rules: [{max: 128, message: '类型描述至多为 128 个字符'}]
          })}  style={{ width: 620 }}/>
        </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
@@ -537,11 +556,16 @@ const DevType= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -565,19 +589,13 @@ const DevType= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          FILTER_KEY:params.FILTER_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -585,9 +603,7 @@ const DevType= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          EMPL_SEX:params.EMPL_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -711,39 +727,69 @@ const DevType= React.createClass({
   },
   componentDidMount() {
     this.fetchList();
-    // 订阅 人员编辑 的事件
-    PubSub.subscribe("devTypeEdit",this.fetchEdit);
-    // 订阅 人员新增 的事件
-    PubSub.subscribe("devTypeAdd",this.fetchAdd);
-    // 订阅 人员删除 的事件
-    PubSub.subscribe("devTypeDelete",this.fetchDelete);
+    // 订阅 编辑 的事件
+    PubSub.subscribe(PageName+"Edit",this.fetchEdit);
+    // 订阅 新增 的事件
+    PubSub.subscribe(PageName+"Add",this.fetchAdd);
+    // 订阅 删除 的事件
+    PubSub.subscribe(PageName+"Delete",this.fetchDelete);
   },
-  //这里还要加个退订事件
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+"Edit");
+    PubSub.unsubscribe(PageName+"Add");
+    PubSub.unsubscribe(PageName+"Delete");
+  },
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
-      this.setState({
-        filterClassName:"el-display-block filter-content-layer",
-        icontype:'up'
-      });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+    this.setState({
+      gaojisousuoVislble:!this.state.gaojisousuoVislble
+    });
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish(PageName+"Reset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
-      <Col span="12" className="table-add-layer"><NewAdd/></Col>
+      <Col span="4"><SearchInput placeholder="输入类型名称或编号搜索" onSearch={this.fetchList} /> </Col>
+      <Col span="2" style={{marginLeft:-10}}>
+        <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
+            <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+        </Popover>
+      </Col>
+      <Col span="1" style={{marginLeft:-20}}>
+        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+      </Col>
+          <Col span="12" className="table-add-layer"><NewAdd/></Col>
      </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}

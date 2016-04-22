@@ -1,30 +1,32 @@
 import React from 'react';
 import reqwest from 'reqwest';
-import PubSub from 'pubsub-js';
-import { Select,DatePicker,Row,Col,Form,Checkbox,Table,Modal,Input,Popconfirm,Icon, Button,Dropdown,Popover,Tabs } from 'antd';
+import { DatePicker,Row,Col,Form,Table,Input,Icon,Button,Popover,Select } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
 const FormItem = Form.Item;
 const createForm = Form.create;
 const InputGroup = Input.Group;
-const confirm = Modal.confirm;
+const RangePicker = DatePicker.RangePicker;
 
 
 
 //指定表格每列内容
 const columns = [{
   title: '帐号',
-  dataIndex: 'OPER_ACCOUNT'
+  dataIndex: 'OPER_ACCOUNT',
+  sorter: true
 },{
   title: '时间',
   dataIndex: 'OPLG_DATE',
   render(text, row, index) {
       return commonFunction.formatTime(row.OPLG_DATE,"yyyy-MM-dd hh:mm:ss");
-  }
+  },
+  sorter: true
 },{
   title: '内容',
-  dataIndex: 'OPLG_INFO'
+  dataIndex: 'OPLG_INFO',
+  sorter: true
 },{
   title: '结果',
   dataIndex: 'OPLG_RESULT',
@@ -37,9 +39,9 @@ const columns = [{
         return '成功';
       break;
     }
-  }
+  },
+  sorter: true
 }];
-
 
 
 
@@ -51,6 +53,15 @@ const SearchInput = React.createClass({
       FILTER_KEY: '',
       focus: false,
     };
+  },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe("operatorlogReset",this.handleReset);
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
   },
   handleInputChange(e) {
     this.setState({
@@ -103,10 +114,25 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe("operatorlogReset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe('operatorlogReset');
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
     params.type='moreSearch';
+    if(typeof params.FILTER_OPLG_DATE!='undefined'){
+      params.FILTER_OPLG_START_TIME=commonFunction.formatTime(params.FILTER_OPLG_DATE[0],'yyyy-MM-dd hh:mm:ss');
+      params.FILTER_OPLG_END_TIME=commonFunction.formatTime(params.FILTER_OPLG_DATE[1],'yyyy-MM-dd hh:mm:ss');
+    }
     this.props.search(params);
     this.props.fliterhide();
   },
@@ -115,36 +141,37 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
-        <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('EMPL_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
-          </Select>
-        </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+      <div>
+        <Form horizontal inline onSubmit={this.handleSubmit} >
+          <FormItem
+            label="操作时间：">
+            <RangePicker showTime format="yyyy/MM/dd HH:mm:ss" {...getFieldProps('FILTER_OPLG_DATE')} />
+          </FormItem>
+          <br/>
+          <FormItem
+            label="操作结果：">
+            <Select placeholder="请选择操作结果" style={{ width: 120 }} {...getFieldProps('FILTER_OPLG_RESULT')}>
+              <Option value="0">成功</Option>
+              <Option value="1">失败</Option>
+            </Select>
+          </FormItem>
+          <br/>
+          <FormItem
+            label="操作内容：">
+            <Input placeholder="请输入操作内容搜索" {...getFieldProps('FILTER_OPLG_INFO')} style={{ width: 300 }}/>
+          </FormItem>
+          <div style={{ textAlign: 'right' }}>
+              <Button size="small" type="primary" htmlType="submit">搜索</Button>
+              <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
+          </div>
+        </Form>
+        </div>
     );
   }
 });
 FilterLayer = Form.create()(FilterLayer);
-
-
-
 
 
 
@@ -162,11 +189,16 @@ const OperatorLog= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -190,19 +222,13 @@ const OperatorLog= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          FILTER_KEY:params.FILTER_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -210,9 +236,7 @@ const OperatorLog= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          EMPL_SEX:params.EMPL_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -230,7 +254,7 @@ const OperatorLog= React.createClass({
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         break;
       default:
-        params=commonFunction.objExtend(params,this.state.pagination);
+        params=commonFunction.objExtend({},params);
     }
     this.setState({ loading: true });
     reqwest({
@@ -241,13 +265,6 @@ const OperatorLog= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        if(result.data.ERROR!=0){
-          commonFunction.MessageTip(result.data.MSG,2,'error');
-          this.setState({
-            loading: false
-          });
-          return;
-        }
         const pagination = this.state.pagination;
         pagination.total = result.data.O_OPERATORLOG.count;
         pagination.current = result.data.O_OPERATORLOG.currentPage;
@@ -268,31 +285,55 @@ const OperatorLog= React.createClass({
   componentDidMount() {
     this.fetchList();
   },
-  //这里还要加个退订事件
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
       this.setState({
-        filterClassName:"el-display-block filter-content-layer",
-        icontype:'up'
+        gaojisousuoVislble:!this.state.gaojisousuoVislble
       });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish("operatorlogReset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
     <div>
      <Row>
-      <Col span="4"><SearchInput placeholder="输入名字搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
+      <Col span="4"><SearchInput placeholder="输入帐号搜索" onSearch={this.fetchList} /> </Col>
+      <Col span="2" style={{marginLeft:-10}}>
+        <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
+            <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+        </Popover>
+      </Col>
+      <Col span="1" style={{marginLeft:-20}}>
+        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+      </Col>
      </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}
