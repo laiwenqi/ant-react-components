@@ -1,7 +1,7 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { Tree,Steps,Badge,DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
+import {Breadcrumb,Transfer, Cascader ,TimePicker ,Tree,Steps,Badge,DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm, message,Icon, Button,Dropdown,Menu,Popover,Select,Tabs } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
@@ -15,6 +15,157 @@ const SubMenu = Menu.SubMenu;
 const MenuItemGroup = Menu.ItemGroup;
 const TreeNode = Tree.TreeNode;
 
+
+//页面名称
+const PageName='device';
+
+//定义组织
+let organization;
+
+//定义系统
+let system;
+
+//定义终端类型
+let devType;
+
+
+//定义版本
+let version;
+
+//定义配置文件
+let configFile;
+
+
+//定义设备使用状态
+const devStatus=[
+  {value:'0',text:"暂停使用",dotColor:'#FFA500'},
+  {value:'1',text:"可用",dotColor:'#87d068'},
+  {value:'3',text:"已报废",dotColor:'#red'}
+];
+
+const devStatusList=devStatus.map(function(item){
+    return (<Option value={String(item.value)} >{item.text}</Option>)
+});
+
+//定义 配置服务
+const serviceList=[{
+  'key':'sub1',
+  'title':'支付',
+  'contain':[{
+    'key':'sub1-1',
+    'title':'现金支付',
+    'contain':[{
+      'key':'sub1-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub1-2',
+    'title':'后台系统支付',
+    'contain':[{
+      'key':'sub1-2-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub1-3',
+    'title':'银联支付',
+    'contain':[{
+      'key':'sub1-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub1-4',
+    'title':'冲正支付',
+    'contain':[{
+      'key':'sub1-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub1-5',
+    'title':'其它非现金支付方式',
+    'contain':[{
+      'key':'sub1-1-1',
+      'title':'现金交易用户'
+    }]
+  }]
+},{
+  'key':'sub2',
+  'title':'充值',
+  'contain':[{
+    'key':'sub2-1',
+    'title':'卡类售卡',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-2',
+    'title':'卡类消费',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-3',
+    'title':'卡类充值',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-4',
+    'title':'卡类回收',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-5',
+    'title':'水费缴费服务',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-6',
+    'title':'电费缴费服务',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  },{
+    'key':'sub2-7',
+    'title':'综合缴费服务',
+    'contain':[{
+      'key':'sub2-1-1',
+      'title':'现金交易用户'
+    }]
+  }]
+}];
+
+const options = [{
+  value: 'zhejiang',
+  label: '浙江',
+  children: [{
+    value: 'hangzhou',
+    label: '杭州',
+    children: [{
+      value: 'xihu',
+      label: '西湖',
+    }],
+  }],
+}, {
+  value: 'jiangsu',
+  label: '江苏',
+  children: [{
+    value: 'nanjing',
+    label: '南京',
+    children: [{
+      value: 'zhonghuamen',
+      label: '中华门',
+    }],
+  }],
+}];
+
 //指定表格每列内容
 const columns = [{
   title: '终端名',
@@ -27,23 +178,13 @@ const columns = [{
   title: '状态',
   dataIndex: 'DEV_USE_STATE',
   render(text, row, index) {
-    switch (row.DEV_USE_STATE) {
-      case 1:
+    for(let i in devStatus){
+      if(row.DEV_USE_STATE==devStatus[i].value){
+        let backgroundColor=devStatus[i].dotColor;
         return (
-          <div ><Badge dot style={{ backgroundColor: '#87d068' }}/><span className="status-word">可用</span></div>
-        );
-        break;
-      case 0:
-        return (
-          <div ><Badge dot style={{ backgroundColor: '#FFA500' }}/><span className="status-word">暂停使用</span></div>
-        );
-        break;
-      case 3:
-        return (
-          <div ><Badge dot style={{ backgroundColor: '#red' }}/><span className="status-word">已报废</span></div>
-        );
-        break;
-      default:
+          <div ><Badge dot style={{backgroundColor}}/><span className="status-word">{devStatus[i].text}</span></div>
+        )
+      }
     }
   }
 },{
@@ -71,6 +212,19 @@ let SearchInput = React.createClass({
       DEV_KEY: '',
       focus: false,
     };
+  },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+"Reset");
+  },
+  handleReset(){
+    this.setState({
+      FILTER_KEY:''
+    });
   },
   handleInputChange(e) {
     this.setState({
@@ -123,6 +277,17 @@ let FilterLayer = React.createClass({
     return {
     };
   },
+  componentDidMount() {
+    // 订阅 重置 的事件
+    PubSub.subscribe(PageName+"Reset",this.handleButtonReset);
+  },
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Reset');
+  },
+  handleButtonReset() {
+    this.props.form.resetFields();
+  },
   handleSubmit(e) {
     e.preventDefault();
     let params=this.props.form.getFieldsValue();
@@ -135,29 +300,15 @@ let FilterLayer = React.createClass({
     this.props.form.resetFields();
   },
   render() {
-const { getFieldProps } = this.props.form;
+    const { getFieldProps } = this.props.form;
     return (
-  <Form horizontal inline onSubmit={this.handleSubmit} className="advanced-search-form advanced-search-o">
-    <Row>
-      <Col span="8">
-        <FormItem
-          label="选择性别："
-          labelCol={{ span: 10 }}
-          wrapperCol={{ span: 14 }}>
-          <Select placeholder="请选择性别" style={{ width: 120 }} {...getFieldProps('DEV_SEX')}>
-            <Option value="0">女</Option>
-            <Option value="1">男</Option>
-          </Select>
-        </FormItem>
-      </Col>
-    </Row>
-    <Row>
-      <Col span="8" offset="16" style={{ textAlign: 'right' }}>
-        <Button type="primary" htmlType="submit">搜索</Button>
-        <Button onClick={this.handleReset}>清除条件</Button>
-      </Col>
-    </Row>
-  </Form>
+      <Form inline  onSubmit={this.handleSubmit} >
+        <br/>
+        <div style={{ textAlign: 'right' }}>
+            <Button size="small" type="primary" htmlType="submit">搜索</Button>
+            <Button style={{ marginLeft: '10px' }} size="small" onClick={this.handleReset}>清除条件</Button>
+        </div>
+      </Form>
     );
   }
 });
@@ -172,6 +323,7 @@ FilterLayer = Form.create()(FilterLayer);
 //点击操作编辑 弹窗内容
 let ModalContent =React.createClass({
   getInitialState() {
+    console.log(configFile);
     return {
       stepCurrent:0,//步骤条已完成的步骤数
       sureButtonWord:'下一步',
@@ -179,7 +331,15 @@ let ModalContent =React.createClass({
       stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"],
       loading:false,//确定按钮状态
       nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
-      contentV:this.props.contentValue
+      contentV:this.props.contentValue,
+      isuse:this.props.contentValue.INUSE==0?false:true,
+      version:this.props.contentValue.DVTP_ID,
+      params:[],//配置参数的
+      module:[],//配置模块的
+      fittings:[],//模块配件的
+      file:[],//配置文件的
+      targetKeys:[],
+      mockData:configFile
     }
   },
   componentWillReceiveProps(){
@@ -198,8 +358,105 @@ let ModalContent =React.createClass({
     let i=this.state.stepCurrent;
     this.state.stepVisible[i]="el-display-none";
     this.state.stepVisible[i+1]="";
+    if(i==0){
+      const {  getFieldValue } = this.props.form;
+      //加载参数配置
+      reqwest({
+        url:web_config.http_request_domain+'/proc/device/typeparalist',
+        method: 'POST',
+        timeout :web_config.http_request_timeout,
+        data:{DVMD_ID:getFieldValue("DVMD_ID")},
+        crossOrigin: web_config.http_request_cross, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.ERROR!=0){
+            commonFunction.MessageTip(result.data.MSG,2,'error');
+            this.setState({
+              loading: false
+            });
+            return;
+          }
+          this.setState({
+            params:result.data.RESULT
+          });
+        },
+        error:()=>{
+          commonFunction.MessageTip('获取数据失败',2,'error');
+          this.setState({
+            loading: false
+          });
+        }
+      });
+    }
+
+    if(i==1){
+      const {  getFieldValue } = this.props.form;
+      //加载模块配置
+      reqwest({
+        url:web_config.http_request_domain+'/proc/device/modulelist',
+        method: 'POST',
+        timeout :web_config.http_request_timeout,
+        data:{DVMD_ID:getFieldValue("DVMD_ID")},
+        crossOrigin: web_config.http_request_cross, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.ERROR!=0){
+            commonFunction.MessageTip(result.data.MSG,2,'error');
+            this.setState({
+              loading: false
+            });
+            return;
+          }
+          this.setState({
+            module:result.data.RESULT,
+            fittings:result.data.RESULT.O_FITTINGS
+          });
+        },
+        error:()=>{
+          commonFunction.MessageTip('获取数据失败',2,'error');
+          this.setState({
+            loading: false
+          });
+        }
+      });
+    }
+
+
+    if(i==2){
+      const {  getFieldValue } = this.props.form;
+      //加载文件配置
+      reqwest({
+        url:web_config.http_request_domain+'/proc/device/config',
+        method: 'POST',
+        timeout :web_config.http_request_timeout,
+        data:{DEV_ID:this.state.nochangecontentV.DEV_ID},
+        crossOrigin: web_config.http_request_cross, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.ERROR!=0){
+            commonFunction.MessageTip(result.data.MSG,2,'error');
+            this.setState({
+              loading: false
+            });
+            return;
+          }
+          this.setState({
+              targetKeys:result.data.RESULT
+          });
+        },
+        error:()=>{
+          commonFunction.MessageTip('获取数据失败',2,'error');
+          this.setState({
+            loading: false
+          });
+        }
+      });
+    }
+
+
     //完成了
     if(this.state.stepCurrent>=4){
+      this.handleSubmit();
       return;
     }
     if(this.state.stepCurrent==3){
@@ -234,12 +491,15 @@ let ModalContent =React.createClass({
     });
   },
   handleSubmit(e) {
-    e.preventDefault();
+  //  e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
         console.log('Errors in form!!!');
         return;
       }
+
+      console.log(values);
+      return;
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
        /*！！两个对象长度不等可能会导致不正确判断*/
        let aProps = Object.getOwnPropertyNames(values);
@@ -265,8 +525,10 @@ let ModalContent =React.createClass({
   handleCancel() {
     this.props.modalClose();
   },
-  checkOther(rule, value, callback){
-    callback();
+  handleDevTypeChange(value){
+    this.setState({
+      version:value
+    });
   },
   getValidateStatus(field) {
    const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
@@ -278,38 +540,33 @@ let ModalContent =React.createClass({
      return 'success';
    }
  },
+  handleConfigFileChange(targetKeys, direction, moveKeys){
+      this.setState({ targetKeys });
+  },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-     const serviceList=[{
-       'key':'sub1',
-       'title':'支付',
-       'contain':[{
-         'key':'sub1-1',
-         'title':'现金支付',
-         'contain':[{
-           'key':'sub1-1-1',
-           'title':'现金交易用户'
-         }]
-       },{
-         'key':'sub1-2',
-         'title':'后台系统支付',
-         'contain':[{
-           'key':'sub1-2-1',
-           'title':'现金交易用户'
-         }]
-       }]
-     },{
-       'key':'sub2',
-       'title':'充值',
-       'contain':[{
-         'key':'sub2-1',
-         'title':'卡类售卡',
-         'contain':[{
-           'key':'sub2-1-1',
-           'title':'现金交易用户'
-         }]
-       }]
-     }];
+
+     const organizationList=organization.map(function(item){
+        return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
+     });
+
+     const systemList=system.map(function(item){
+        return (<Option value={String(item.DEV_ID)} >{item.DEV_NAME}</Option>)
+     });
+
+     const devTypeList=devType.map(function(item){
+        return (<Option value={String(item.DVTP_ID)} >{item.DVTP_NAME}</Option>)
+     });
+
+     let versionList=[];
+     if(typeof version[this.state.version]!='undefined'){
+      versionList=version[this.state.version].map(function(item){
+         return (<Option value={String(item.DVMD_ID)} >{item.DVMD_VER}</Option>)
+      });
+     }
+
+
+
      const serviceListHtml=serviceList.map(function(item){
        let type_l2=item.contain.map(function(item2){
          let u_l3=item2.contain.map(function(item3){
@@ -329,6 +586,42 @@ let ModalContent =React.createClass({
          </SubMenu>
        )
      });
+
+     let paramsHtml='';
+     if(this.state.params.length>0){
+       paramsHtml=this.state.params.map(function(item){
+         return(
+           <FormItem
+             label={item.DTPR_NAME+"："}>
+             <Input placeholder={"请输入参数"+item.DTPR_NAME}  {...getFieldProps("settingParams_"+item.DTPR_NAME,{
+                 rules: [{ required: item.DTPR_IF_KEY==1?true:false, message: '请填写参数'+item.DTPR_NAME }],
+                 initialValue:item.DTPR_DEFAULT_VAL
+             })}  style={{ width: 163 }} />
+           </FormItem>
+         )
+       });
+     }
+
+     let moduleHtml='';
+     if(this.state.module.length>0){
+       moduleHtml=this.state.module.map(function(item){
+         let fittings=JSON.parse(item.CHOOSE);
+         let fittingsList=fittings.map(function(item){
+           return  (<Option value={String(item.VALUE)} >{item.TEXT}</Option>)
+         });
+         return(
+           <FormItem
+             label={item.DVML_NAME+"："}>
+               <Select id="select" size="large" placeholder={"请选择"+item.DVML_NAME} {...getFieldProps('settingModule_'+item.DVML_ID,{
+                   rules: [],
+               })} style={{ width: 300 }}>
+                 { fittingsList }
+               </Select>
+           </FormItem>
+         )
+       });
+     }
+
      return (
        <div>
        <Steps current={this.state.stepCurrent}>
@@ -341,29 +634,34 @@ let ModalContent =React.createClass({
       <br/>
        <Form inline form={this.props.form}>
 
-       <div className={this.state.stepVisible[0]} >
+       <div className={this.state.stepVisible[0]} style={{marginLeft:30}} >
           <FormItem
-             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;终端名："
+             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;终端名："
              labelCol={{ span: 8 }}
              wrapperCol={{ span: 12 }}>
-            <Input placeholder="请输入终端名"  defaultValue={this.state.contentV.DEV_NAME} style={{ width: 163 }} />
+            <Input placeholder="请输入终端名" {...getFieldProps('DEV_NAME',{
+                rules: [{ required: true, message: '请输入终端名' }],
+                initialValue:this.state.contentV.DEV_NAME
+            })}  style={{ width: 163 }} />
           </FormItem>
           <FormItem
-            label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;序列号："
+            label="序列号："
             labelCol={{ span: 8 }}
             wrapperCol={{ span: 12 }}>
-           <Input placeholder="请输入序列号"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
+           <Input placeholder="请输入序列号" disabled={this.state.isuse} {...getFieldProps('DEV_SN',{
+               rules: [{ required: true, message: '请输入序列号' }],
+               initialValue:this.state.contentV.DEV_SN
+           })}  style={{ width: 163 }} />
           </FormItem>
           <FormItem
              label="归属组织： "
              labelCol={{ span: 8 }}
              wrapperCol={{ span:15 }}>
              <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
-                 rules: [{ required: true, message: '请选择组织' },{validator: this.checkOther}],
+                 rules: [{ required: true, message: '请选择归属组织' }],
                  initialValue:String(this.state.contentV.ORG_ID)
              })} style={{ width: 163 }}>
-               <Option value="1" >公交卡运营公司</Option>
-               <Option value="2" >南屏公交公司</Option>
+               { organizationList }
              </Select>
            </FormItem>
            <FormItem
@@ -371,50 +669,101 @@ let ModalContent =React.createClass({
              labelCol={{ span: 8 }}
              wrapperCol={{ span:15 }}>
              <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID',{
-                 rules: [{ required: true, message: '请选择系统' },{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
+                 rules: [{ required: true, message: '请选择归属系统' }],
+                 initialValue:String(1)
              })} style={{ width: 163 }}>
-               <Option value="1" >服务终端在线管理系统</Option>
+               { systemList }
              </Select>
            </FormItem>
-       </div>
-
-       <div className={this.state.stepVisible[1]} >
            <FormItem
-             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;参数1："
-             labelCol={{ span: 8 }}
-             wrapperCol={{ span: 12 }}>
-            <Input placeholder="请输入参数1"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
-           </FormItem>
-       </div>
-
-       <div className={this.state.stepVisible[2]} >
-           <FormItem
-             label='主板：'
+             label="终端类型： "
              labelCol={{ span: 8 }}
              wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID',{
-                 rules: [{ required: true, message: '请选择系统' },{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
+             <Select disabled={this.state.isuse} id="select" size="large" placeholder="请选择终端类型" {...getFieldProps('DVTP_ID',{
+                 rules: [{ required: true, message: '请选择终端类型' }],
+                 initialValue:String(this.state.contentV.DVTP_ID),
+                 onChange:this.handleDevTypeChange
              })} style={{ width: 163 }}>
-               <Option value="1" >服务终端在线管理系统</Option>
+               { devTypeList }
              </Select>
            </FormItem>
            <FormItem
-             label='触摸屏：'
+             label="终端版本： "
              labelCol={{ span: 8 }}
              wrapperCol={{ span:15 }}>
-             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID2',{
-                 rules: [{validator: this.checkOther}],
-                 initialValue:String(this.state.contentV.DEV_PARENT_ID)
+             <Select id="select" size="large" placeholder="请选择终端版本" {...getFieldProps('DVMD_ID',{
+                 rules: [{ required: true, message: '请选择终端版本' }],
+                 initialValue:String(this.state.contentV.DVMD_ID)
              })} style={{ width: 163 }}>
-               <Option value="1" >--不使用该模块--</Option>
-               <Option value="2" >DAS (生产商：DSA, 型号版本：DAS)</Option>
+                { versionList }
              </Select>
+           </FormItem>
+
+           <FormItem
+             label="&nbsp;&nbsp;工作时间： "
+             required>
+              <TimePicker placeholder="开始时间"  format="HH:mm" {...getFieldProps('DEV_START_TIME',{
+                  rules: [{ required: true, message: '请选择使用状态' }],
+                  initialValue:this.state.contentV.DEV_START_TIME==0?commonFunction.insert_flg("0000",":",2):commonFunction.insert_flg(commonFunction.fillingStr(this.state.contentV.DEV_START_TIME,'0',4,0),":",2)
+              })} />
+                  &nbsp;&nbsp;  ~ &nbsp;&nbsp;
+              <TimePicker placeholder="结束时间"   format="HH:mm" {...getFieldProps('DEV_END_TIME',{
+                  rules: [{ required: true, message: '请选择使用状态' }],
+                  initialValue:this.state.contentV.DEV_END_TIME==0?commonFunction.insert_flg("0000",":",2):commonFunction.insert_flg(commonFunction.fillingStr(this.state.contentV.DEV_END_TIME,'0',4,0),":",2)
+              })} />
+           </FormItem>
+           <FormItem
+             label="使用状态： ">
+             <Select id="select" size="large" placeholder="请选择使用状态" {...getFieldProps('DEV_USE_STATE',{
+                 rules: [{ required: true, message: '请选择使用状态' }],
+                 initialValue:String(this.state.contentV.DEV_USE_STATE)
+             })} style={{ width: 100 }}>
+                { devStatusList }
+             </Select>
+           </FormItem>
+           <br/>
+           <FormItem
+             label="&nbsp;&nbsp;终端地址： "
+             required>
+             <Cascader placeholder="请选择终端地址"  options={options} expandTrigger="hover" {...getFieldProps('DEV_POSITION')} style={{ width:410 }}  />
+           </FormItem>
+           <FormItem
+             id="control-textarea"
+             label="描述："
+             labelCol={{ span: 3 }}
+             wrapperCol={{ span: 15}}>
+             <Input type="textarea" rows="5" {...getFieldProps('DEV_INFO',{
+                 rules: [{max: 124, message: '描述至多为 124 个字符'}],
+                 initialValue:this.state.contentV.DEV_INFO
+             })}  style={{ width: 650 }}/>
            </FormItem>
        </div>
 
-       <div className={this.state.stepVisible[3]} >
+       <div className={this.state.stepVisible[1]} style={{marginLeft:50}}>
+           { paramsHtml }
+           <div className="margin-top-10"></div>
+       </div>
+
+       <div className={this.state.stepVisible[2]} style={{marginLeft:100}}>
+          { moduleHtml }
+          <div className="margin-top-10"></div>
+       </div>
+
+       <div className={this.state.stepVisible[3]} style={{marginLeft:15}}>
+        <Transfer
+           titles={['可选文件','已配置文件']}
+           dataSource={this.state.mockData}
+           targetKeys={this.state.targetKeys}
+           notFoundContent="暂无"
+           render={item => item.title}
+           listStyle={{
+               width: 250,
+               height: 300,
+           }}
+           {...getFieldProps('configFile',{
+             onChange:this.handleConfigFileChange
+           })} />
+           <div className="margin-top-10"></div>
        </div>
 
        <div className={this.state.stepVisible[4]} >
@@ -424,12 +773,27 @@ let ModalContent =React.createClass({
            </Menu>
         </div>
         <div className="server-right">
+          <div className="server-header">
+            <Breadcrumb separator=">">
+                <Breadcrumb.Item>支付</Breadcrumb.Item>
+                <Breadcrumb.Item href="">现金支付</Breadcrumb.Item>
+                <Breadcrumb.Item>现金交易用户</Breadcrumb.Item>
+            </Breadcrumb>
+          </div>
+                <div className="server-body">
                     <FormItem
-                      label="外部编码："
-                      labelCol={{ span: 8 }}
-                      wrapperCol={{ span: 12 }}>
+                      label="外部编码：">
                      <Input placeholder="请输入参数1"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
                     </FormItem>
+                    <br/>
+                    <FormItem
+                      id="control-textarea"
+                      label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;描述：">
+                      <Input type="textarea"  rows="5" placeholder="请输入描述" {...getFieldProps('ROLE_INFO',{
+                          rules: [{max: 128, message: '描述至多为 128 个字符'}]
+                      })}   style={{ width: 320 }}/>
+                    </FormItem>
+                  </div>
         </div>
        </div>
        <div className="ant-modal-footer FormItem-modal-footer">
@@ -480,11 +844,14 @@ const Edit = React.createClass({
     });
   },
   render() {
+    let deleteButton=(<div></div>);
+    if(this.props.INUSE==0){
+      deleteButton=(<div className="div-inline"><span className="ant-divider"></span><a type="primary" onClick={this.handleDelete}>删除</a></div>);
+    }
     return (
       <div>
         <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
-          <span className="ant-divider"></span>
-        <a type="primary" onClick={this.handleDelete}>删除</a>
+        { deleteButton }
         <Modal ref="modal"
           width="600"
           visible={this.state.visible}
@@ -609,11 +976,16 @@ const Device= React.createClass({
       pagination: {
         pageSize:10, //每页显示数目
         total:0,//数据总数
-        current:1//页数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true,
+        // showSizeChanger :true
       },
       loading: false,
-      filterClassName:"el-display-none filter-content-layer",//默认隐藏高级搜索
-      icontype:'down' //默认高级搜素图标
+      gaojisousuoVislble:false
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -637,19 +1009,13 @@ const Device= React.createClass({
     this.fetchList(params);
   },
   fetchList(params = {}) {
-    this.setState({
-      filterClassName:"el-display-none filter-content-layer",
-      icontype:'down'
-    });
     switch (params.type) {
       case undefined:
       case 'undefined':
         params=commonFunction.objExtend(params,this.state.pagination);
         break;
       case 'defaultSearch': //默认搜索行为
-        this.state.defaultFilter={
-          DEV_KEY:params.DEV_KEY
-        };
+        this.state.defaultFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.moreFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -657,9 +1023,7 @@ const Device= React.createClass({
         });
         break;
       case 'moreSearch':    //高级搜索行为
-        this.state.moreFilter={
-          DEV_SEX:params.DEV_SEX
-        };
+        this.state.moreFilter=commonFunction.filterParamsObj(params);
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         params=commonFunction.objExtend(params,{
           pageSize:10, //每页显示数目
@@ -677,19 +1041,25 @@ const Device= React.createClass({
         params=commonFunction.objExtend(params,this.state.defaultFilter);
         break;
       default:
-        params=commonFunction.objExtend(params,this.state.pagination);
+            params=commonFunction.objExtend({},params);
     }
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/devlist',
+      url:web_config.http_request_domain+'/proc/device/devlist',
       method: 'POST',
       data:params,
-      crossOrigin:web_config.cross, //跨域
+      timeout :web_config.http_request_timeout,
+      crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         const pagination = this.state.pagination;
         pagination.total = result.data.O_DEVICE.count;
         pagination.current = result.data.O_DEVICE.currentPage;
+        devType=result.data.O_DEVICE_TYPE;
+        version=result.data.O_DEVICE_VERSION;
+        system=result.data.O_SYSTEM;
+        organization=result.data.O_ORGANIZATION;
+        configFile=result.data.O_DEV_CONFIG;
         this.setState({
           loading: false,
           data: result.data.O_DEVICE.data,
@@ -705,10 +1075,11 @@ const Device= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/update',
+      url:web_config.http_request_domain+'/proc/device/update',
       method: 'POST',
       data:editParams,
-      crossOrigin:web_config.cross, //跨域
+      timeout :web_config.http_request_timeout,
+      crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0&&commonFunction.MessageTip(editParams.DEV_NAME+'，编辑成功',2,'success');
@@ -767,38 +1138,68 @@ const Device= React.createClass({
   componentDidMount() {
     this.fetchList();
     // 订阅 编辑 的事件
-    PubSub.subscribe("devEdit",this.fetchEdit);
+    PubSub.subscribe(PageName+"Edit",this.fetchEdit);
     // 订阅 新增 的事件
-    PubSub.subscribe("devAdd",this.fetchAdd);
+    PubSub.subscribe(PageName+"Add",this.fetchAdd);
     // 订阅 删除 的事件
-    PubSub.subscribe("devDelete",this.fetchDelete);
+    PubSub.subscribe(PageName+"Delete",this.fetchDelete);
   },
-  //这里还要加个退订事件
+  componentWillUnmount(){
+    //退订事件
+    PubSub.unsubscribe(PageName+'Edit');
+    PubSub.unsubscribe(PageName+'Add');
+    PubSub.unsubscribe(PageName+'Delete');
+  },
   filterDisplay(){
-    /*高级搜索展示暂时还没加上动画*/
-    if(this.state.filterClassName=="el-display-none filter-content-layer"){
-      this.setState({
-        filterClassName:"filter-content-show filter-content-layer",
-        icontype:'up'
-      });
-    }else{
-      this.setState({
-        filterClassName:"el-display-none filter-content-layer",
-        icontype:'down'
-      });
-    }
+    this.setState({
+      gaojisousuoVislble:!this.state.gaojisousuoVislble
+    });
+  },
+  fliterDisplayChange(e){
+    this.setState({
+      gaojisousuoVislble:e
+    });
+  },
+  resetSearch(){
+    this.setState({
+      defaultFilter:{},
+      moreFilter:{},
+      pagination: {
+        pageSize:10, //每页显示数目
+        total:0,//数据总数
+        current:1,//页数
+        size:'large',
+        showTotal:function showTotal(total) {
+            return `共 ${total} 条记录`;
+        },
+        showQuickJumper:true
+      }
+    });
+    PubSub.publish(PageName+"Reset",{});
+    this.fetchList({
+      type:'reset',
+      pageSize:10,
+      current:1
+    });
   },
   render() {
+    const FilterLayerContent= (
+      <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
+    );
     return (
-    <div>
-     <Row>
-      <Col span="4"><SearchInput placeholder="输入搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="4"><Button type="primary" htmlType="submit" className="gaojibtn" onClick={this.filterDisplay} >高级搜索<Icon type={this.state.icontype} /></Button> </Col>
-      <Col span="12" className="table-add-layer"><NewAdd/></Col>
-     </Row>
-        <div className={this.state.filterClassName} >
-          <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
-        </div>
+      <div>
+       <Row>
+        <Col span="4"><SearchInput placeholder="输入设备名搜索" onSearch={this.fetchList} /> </Col>
+        <Col span="2" style={{marginLeft:-10}}>
+          <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
+              <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+          </Popover>
+        </Col>
+        <Col span="1" style={{marginLeft:-20}}>
+          <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
+        </Col>
+        <Col span="12" className="table-add-layer"><NewAdd/></Col>
+       </Row>
         <div className="margin-top-10"></div>
         <Table columns={columns}
             dataSource={this.state.data}
@@ -806,7 +1207,7 @@ const Device= React.createClass({
             loading={this.state.loading}
             onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
             size="middle"
-            rowKey={record => record.ID} /*指定每行的主键 不指定默认key*/
+            rowKey={record => record.DEV_ID} /*指定每行的主键 不指定默认key*/
             bordered={true}
         />
    </div>

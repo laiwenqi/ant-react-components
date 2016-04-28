@@ -199,11 +199,22 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
+
+      let tmsvid;
+      for(let i in servicetype[this.props.CTTP_CLASS]){
+        if(servicetype[this.props.CTTP_CLASS][i].TMSV_CODE==values.TMSV_CODE){
+          tmsvid=String(+servicetype[this.props.CTTP_CLASS][i].TMSV_ID,'0#');
+          break;
+        }
+      }
+
       let EDIT_PARAMS={
         CTNR_ID:this.state.nochangecontentV.CTNR_ID, //ID
         CTTP_NAME:this.state.nochangecontentV.CTTP_NAME, //名字
-        CTNR_CODE:this.state.nochangecontentV.CTNR_CODE //编号
+        CTNR_CODE:this.state.nochangecontentV.CTNR_CODE, //编号
+        TYPE:this.props.CTTP_CLASS+String(+values.CTTP_ID,'0#')+tmsvid
       };
+
       let params=commonFunction.objExtend(EDIT_PARAMS,values);
       //发布 编辑 事件
       this.state.loading=true;
@@ -232,6 +243,9 @@ let ModalContent =React.createClass({
      const boxtypeList=boxtype[this.props.CTTP_CLASS].map(function(item){
        return (<Option value={String(item.CTTP_ID)} >{item.CTTP_NAME}</Option>)
      });
+     const serviceList=servicetype[this.props.CTTP_CLASS].map(function(item){
+       return (<Option value={String(item.TMSV_CODE)} >{item.TMSV_NAME}</Option>)
+     });
      let boxname=(this.props.CTTP_CLASS==2?"卡箱":"钞箱");
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
@@ -257,6 +271,17 @@ let ModalContent =React.createClass({
             initialValue:String(this.state.contentV.CTTP_ID)
         })} style={{ width: 163 }}>
         { boxtypeList }
+        </Select>
+      </FormItem>
+      <FormItem
+        label={"服务类型："}
+        labelCol={{ span: 8 }}
+        wrapperCol={{ span:15 }}>
+        <Select id="select" size="large" placeholder={"请选择服务类型"} {...getFieldProps('TMSV_CODE',{
+            rules: [{ required: true,whitespace:true, message: "请选择服务类型" }],
+            initialValue:String(this.state.contentV.TMSV_CODE)
+        })} style={{ width: 163 }}>
+        { serviceList }
         </Select>
       </FormItem>
       <FormItem
@@ -317,15 +342,15 @@ const Edit = React.createClass({
   render() {
     let op;
     if(this.props.INUSE){
-      op=(<div>已使用，不可修改</div>);
-    }else{
-      op = (
-        <div>
-          <a type="primary" onClick={this.showModal} {...this.props}>修改</a>
-            <span className="ant-divider"></span>
-          <a type="primary" onClick={this.handleDelete}>删除</a>
-        </div>
-        );
+        op=(<div>已使用，不可修改</div>);
+      }else{
+        op = (
+          <div>
+            <a type="primary" onClick={this.showModal} {...this.props}>修改</a>
+              <span className="ant-divider"></span>
+            <a type="primary" onClick={this.handleDelete}>删除</a>
+          </div>
+          );
     }
     return (
       <div>
@@ -409,12 +434,24 @@ let NewAddModalContent =React.createClass({
         return;
       }
       let params=values;
+      let tmsvid;
+      for(let i in servicetype[this.props.id]){
+        if(servicetype[this.props.id][i].TMSV_CODE==params.TMSV_CODE){
+          tmsvid=String(+servicetype[this.props.id][i].TMSV_ID,'0#');
+          break;
+        }
+      }
+
+        //编号是 卡箱类型+CTTP_ID+tmsvid
+      params.TYPE=this.props.id+String(+params.CTTP_ID,'0#')+tmsvid;
+
       for(let i in boxtype[this.props.id]){
         if(boxtype[this.props.id][i].CTTP_ID==params.CTTP_ID){
           params.CTTP_NAME=boxtype[this.props.id][i].CTTP_NAME;
           break;
         }
       }
+
       //发布 新增 事件
       PubSub.publish(PageName+"Add",params);
       this.props.modalClose();
@@ -430,6 +467,9 @@ let NewAddModalContent =React.createClass({
      });
      const boxtypeList=boxtype[this.props.id].map(function(item){
        return (<Option value={String(item.CTTP_ID)} >{item.CTTP_NAME}</Option>)
+     });
+     const serviceList=servicetype[this.props.id].map(function(item){
+       return (<Option value={String(item.TMSV_CODE)} >{item.TMSV_NAME}</Option>)
      });
      let boxname=(this.props.id==2?"卡箱":"钞箱");
      return (
@@ -453,6 +493,16 @@ let NewAddModalContent =React.createClass({
              rules: [{ required: true,whitespace:true, message: "请选择"+boxname }]
          })} style={{ width: 163 }}>
          { boxtypeList }
+         </Select>
+       </FormItem>
+       <FormItem
+         label={"服务类型："}
+         labelCol={{ span: 8 }}
+         wrapperCol={{ span:15 }}>
+         <Select id="select" size="large" placeholder={"请选择服务类型"} {...getFieldProps('TMSV_CODE',{
+             rules: [{ required: true,whitespace:true, message: "请选择服务类型" }]
+         })} style={{ width: 163 }}>
+         { serviceList }
          </Select>
        </FormItem>
        <FormItem
@@ -612,12 +662,12 @@ const Container= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip(editParams.CTTP_NAME+'-'+editParams.CTNR_CODE+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.CTTP_NAME+'-'+editParams.CTNR_CODE+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0&&commonFunction.MessageTip(editParams.CTTP_NAME+'，编辑成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.CTTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(editParams.CTTP_NAME+'-'+editParams.CTNR_CODE+'，编辑失败',2,'error');
+        commonFunction.MessageTip(editParams.CTTP_NAME+'，编辑失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -636,12 +686,12 @@ const Container= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.CTTP_NAME+'-'+deleteParams.CTNR_CODE+'，删除成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.CTTP_NAME+'-'+deleteParams.CTNR_CODE+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.CTTP_NAME+'，删除成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.CTTP_NAME+'，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(deleteParams.CTTP_NAME+'-'+deleteParams.CTNR_CODE+'，删除失败',2,'error');
+        commonFunction.MessageTip(deleteParams.CTTP_NAME+'，删除失败',2,'error');
         this.fetchList(listParams);
       }
     });

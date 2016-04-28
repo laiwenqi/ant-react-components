@@ -16,6 +16,9 @@ import React from 'react';
  import Abnormal from '../web/abnormal.jsx';
  import Payment from '../web/payment.jsx';
  import Cycle from '../web/cycle.jsx';
+ import TradeStatistics from '../web/tradeStatistics.jsx';
+ import Cashbox from '../web/cashbox.jsx';
+ import Goodsbox from '../web/goodsbox.jsx';
 //下面根据标签页面显示内容
 const TabsContent= React.createClass({
   getInitialState() {
@@ -78,6 +81,15 @@ const TabsContent= React.createClass({
       break;
       case "cycle":
         return (<Cycle />)
+      break;
+      case "tradeStatistics":
+        return (<TradeStatistics />)
+      break;
+      case "cashbox":
+        return (<Cashbox />)
+      break;
+      case "goodsbox":
+        return (<Goodsbox />)
       break;
     }
   }

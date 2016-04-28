@@ -144,7 +144,7 @@ let FilterLayer = React.createClass({
     const { getFieldProps } = this.props.form;
     return (
       <div>
-        <Form horizontal inline onSubmit={this.handleSubmit} >
+        <Form  inline onSubmit={this.handleSubmit} >
           <FormItem
             label="操作时间：">
             <RangePicker showTime format="yyyy/MM/dd HH:mm:ss" {...getFieldProps('FILTER_OPLG_DATE')} />
@@ -152,7 +152,7 @@ let FilterLayer = React.createClass({
           <br/>
           <FormItem
             label="操作结果：">
-            <Select placeholder="请选择操作结果" style={{ width: 120 }} {...getFieldProps('FILTER_OPLG_RESULT')}>
+            <Select placeholder="请选择操作结果" style={{ width: 340 }} {...getFieldProps('FILTER_OPLG_RESULT')}>
               <Option value="0">成功</Option>
               <Option value="1">失败</Option>
             </Select>
@@ -160,7 +160,7 @@ let FilterLayer = React.createClass({
           <br/>
           <FormItem
             label="操作内容：">
-            <Input placeholder="请输入操作内容搜索" {...getFieldProps('FILTER_OPLG_INFO')} style={{ width: 300 }}/>
+            <Input placeholder="请输入操作内容搜索" {...getFieldProps('FILTER_OPLG_INFO')} style={{ width: 340 }}/>
           </FormItem>
           <div style={{ textAlign: 'right' }}>
               <Button size="small" type="primary" htmlType="submit">搜索</Button>

@@ -249,7 +249,7 @@ let ModalContent =React.createClass({
       callback();
       return;
     }
-    if( value.trim() ==''){
+    if( !value||!value.trim()){
         callback();
     }else {
       reqwest({
@@ -257,7 +257,7 @@ let ModalContent =React.createClass({
         method: 'POST',
         timeout :web_config.http_request_timeout,
         data:{
-          EMPL_NAME:value.trim()
+          EMPL_NAME:value
         },
         crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
@@ -282,7 +282,7 @@ let ModalContent =React.createClass({
       callback();
       return;
     }
-    if( value.trim() ==''){
+    if( !value||!value.trim()){
         callback();
     }else {
       reqwest({
@@ -290,7 +290,7 @@ let ModalContent =React.createClass({
         method: 'POST',
         timeout :web_config.http_request_timeout,
         data:{
-          EMPL_CODE:value.trim()
+          EMPL_CODE:value
         },
         crossOrigin:web_config.http_request_cross, //跨域
         type: "json",
@@ -311,11 +311,11 @@ let ModalContent =React.createClass({
   },
   checkEmplCardCode(rule, value, callback){
     //对比，如果和原来的值一样就不做校验了
-    if(value.trim() !=''&&this.state.nochangecontentV.EMPL_CARD_CODE==value){
+    if(value !=''&&this.state.nochangecontentV.EMPL_CARD_CODE==value){
       callback();
       return;
     }
-    if( value.trim() ==''){
+    if( !value||!value.trim()){
       const { getFieldValue } = this.props.form;
       if(getFieldValue('OPER_TERM_IF_AUTH')==1){
         callback(new Error('终端授权时，不能空'));
@@ -329,7 +329,7 @@ let ModalContent =React.createClass({
         method: 'POST',
         timeout :web_config.http_request_timeout,
         data:{
-          EMPL_CARD_CODE:value.trim()
+          EMPL_CARD_CODE:value
         },
         crossOrigin:web_config.http_request_cross, //跨域
         type: "json",

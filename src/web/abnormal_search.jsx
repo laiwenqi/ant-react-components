@@ -5,7 +5,7 @@ import { DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfi
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
-import AbnormalSearch from './abnormal_search.jsx';
+import Abnormal from './abnormal.jsx';
 import './abnormal.less';
 const FormItem = Form.Item;
 const createForm = Form.create;
@@ -14,7 +14,7 @@ const confirm = Modal.confirm;
 const RangePicker = DatePicker.RangePicker;
 
 //页面名称
-const PageName='abnormal'+Date.parse(new Date());
+const PageName='abnormal_search'+Date.parse(new Date());
 
 //定义服务类型
 let servicetype=[];
@@ -214,186 +214,6 @@ FilterLayer = Form.create()(FilterLayer);
 
 
 
-//点击操作编辑 弹窗内容
-let ModalContent =React.createClass({
-  getInitialState() {
-    return {
-      loading:false,//确定按钮状态
-      nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
-      contentV:this.props.contentValue,
-      ABTD_TARGET:{
-        DISABLED:true,
-        VISABLE:true
-      }
-    }
-  },
-  componentWillReceiveProps(){
-    //每次打开还原表单的值
-    if(this.props.visible==false){
-      this.props.form.resetFields();
-    }
-  },
-  handleSubmit(e) {
-    e.preventDefault();
-    this.props.form.validateFieldsAndScroll((errors, values) => {
-      if (!!errors) {
-        console.log('表单没通过验证');
-        return;
-      }
-        /*判断弹窗表单值是否有改变，没有就不发布更新*/
-       /*！！两个对象长度不等可能会导致不正确判断*/
-       let hasChanged=0; /*0表示没有改变*/
-       if(values.ABTD_DONE_STATUS!=this.state.nochangecontentV.ABTD_DONE_STATUS){
-         hasChanged=1;
-       }
-       if(values.ABTD_TARGET!=this.state.nochangecontentV.ABTD_TARGET){
-         hasChanged=1;
-       }
-       if(values.ABTD_REASON!=this.state.nochangecontentV.ABTD_REASON){
-         hasChanged=1;
-       }
-       if(hasChanged==0){
-         this.handleCancel();
-         return;
-       }
-
-       //根据处理状态选择
-      let url;
-      let params;
-      if(values.ABTD_DONE_STATUS=="9"){
-        url='/proc/abnormal/continue';
-        params=commonFunction.objExtend({
-         ABTD_ID:this.state.nochangecontentV.ABTD_ID,
-         TDDT_TERM_SN:this.state.nochangecontentV.ABTD_TERM_SN,
-         url:url
-        },values);
-      }else{
-        url='/proc/abnormal/refund';
-        params=commonFunction.objExtend({
-         ABTD_ID:this.state.nochangecontentV.ABTD_ID,
-         url:url,
-         DEV_SN:this.state.nochangecontentV.DEV_SN,
-         RVDT_PYMN_SN:'',
-         PYMN_SN:this.state.nochangecontentV.PYMN_SN,
-         RVDT_TERM_SN:'',
-         TDDT_TERM_SN:this.state.nochangecontentV.ABTD_TERM_SN,
-         RVDT_AMOUNT:this.state.nochangecontentV.ABTD_AMOUNT,
-         RVDT_TRADE_TIME:commonFunction.formatTime(this.state.contentV.ABTD_TIME,"yyyy-MM-dd hh:mm:ss"),
-         RVDT_REASON: 'ABNORMAL_REFUND',
-         ABTD_STATUS: this.state.nochangecontentV.ABTD_STATUS,
-         RVDT_REASON_DESC: '异常交易退款',
-         FLAG:this.state.nochangecontentV.ABTD_IF_DONE
-        },values);
-      }
-
-      //发布 编辑 事件
-      this.state.loading=true;
-      this.props.modalClose();
-      PubSub.publish(PageName+"Edit",params);
-    });
-  },
-  handleCancel() {
-    this.props.modalClose();
-  },
-  getValidateStatus(field) {
-   const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
-   if (isFieldValidating(field)) {
-     return 'validating';
-   } else if (!!getFieldError(field)) {
-     return 'error';
-   } else if (getFieldValue(field)) {
-     return 'success';
-   }
- },
- ABTD_DONE_STATUS_CHANGE(value){
-   switch(value){
-     case '0':
-      this.setState({
-        ABTD_TARGET:{
-          DISABLED:true,
-          VISABLE:true
-        }
-      });
-     break;
-     case '5':
-      this.setState({
-        ABTD_TARGET:{
-          DISABLED:false,
-          VISABLE:true
-        }
-      });
-     break;
-     case '9':
-      this.setState({
-        ABTD_TARGET:{
-          DISABLED:true,
-          VISABLE:false
-        }
-      });
-     break;
-   }
- },
- render() {
-     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-
-     let input_kahao=(<div className='el-display-none'></div>);
-
-     if(this.state.ABTD_TARGET.VISABLE){
-         input_kahao=(
-           <FormItem label="充值卡号： " >
-           <Input  disabled={this.state.ABTD_TARGET.DISABLED} placeholder="请输入充值卡号" {...getFieldProps('ABTD_TARGET',{
-               rules: [{ required: true,whitespace:true, message: '请输入充值卡号' }],
-               initialValue:this.state.contentV.ABTD_TARGET
-           })} style={{ width: 230 }}/>
-           </FormItem>
-     )};
-
-     return (
-       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
-       <Form inline form={this.props.form}>
-       <div className="abnormalDetailLayer">
-       <FormItem label="交易卡号："  style={{ width: 200 }}>
-         <div className="item-highlight" >{this.state.contentV.ABTD_TARGET}</div>
-       </FormItem>
-       <FormItem label="交易流水："  style={{ width: 200 }}>
-         <div className="item-highlight">{this.state.contentV.ABTD_TERM_SN}</div>
-       </FormItem>
-       <FormItem label="交易时间："  style={{ width: 200 }}>
-         <div  className="item-highlight">{commonFunction.formatTime(this.state.contentV.ABTD_TIME,"yyyy-MM-dd hh:mm:ss")}</div>
-       </FormItem>
-       </div>
-       <hr className="hr"/>
-      <div style={{marginLeft:100}}>
-       <FormItem label="处理状态： ">
-         <Select id="select" size="large" placeholder="请选择处理状态" {...getFieldProps('ABTD_DONE_STATUS',{
-             rules: [{ required: true, message: '请选择处理状态' }],
-             initialValue:this.state.contentV.ABTD_DONE_STATUS || "0",
-             onChange:this.ABTD_DONE_STATUS_CHANGE
-         })} style={{ width: 230 }}>
-          { ABTB_STATUS_LIST }
-         </Select>
-       </FormItem>
-       { input_kahao }
-       <FormItem
-         id="control-textarea"
-         label="&nbsp;&nbsp;&nbsp;&nbsp;处理原因：">
-         <Input type="textarea" rows="5" placeholder="请填写处理原因" {...getFieldProps('ABTD_REASON',{
-             rules: [{max: 128, message: '处理原因至多为 128 个字符'}],
-             initialValue:this.state.contentV.ABTD_REASON
-         })} style={{ width: 230 }}/>
-       </FormItem>
-       </div>
-       <div className="ant-modal-footer FormItem-modal-footer">
-            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
-            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
-        </div>
-       </Form>
-     )
-   }
-});
-ModalContent = Form.create()(ModalContent);
-
-
 
 
 //点击操作 详情 弹窗内容
@@ -426,8 +246,8 @@ let DetailContent =React.createClass({
          }
      }
      for(let i=0;i<servicetype.length;i++){
-         if(this.state.contentV.TMSV_CODE_NUM==servicetype[i].value){
-             fuwu_type=servicetype[i].TMSV_NAME;
+         if(this.state.contentV.TMSV_ID==servicetype[i].value){
+             fuwu_type=servicetype[i].text;
              break;
          }
      }
@@ -518,21 +338,7 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showHandle} {...this.props}>处理异常</a>
-          <span className="ant-divider"></span>
         <a type="primary" onClick={this.showDetail}>详情</a>
-        <Modal ref="modal"
-          width="550"
-          visible={this.state.HandleVisible}
-          title={'处理异常-终端交易流水'+this.props.ABTD_TERM_SN}
-          onCancel={this.handleCancel}
-          footer={null} >
-          <ModalContent
-            modalClose={this.handleCancel} //传递取消事件
-            contentValue={this.props}  //传递表单的值
-            visible={this.state.HandleVisible}
-            />
-        </Modal>
         <Modal ref="modal"
           width="550"
           visible={this.state.DetailVisible}
@@ -555,7 +361,7 @@ const Edit = React.createClass({
 
 
 //标签分页里面的整个内容
-const Abnormal= React.createClass({
+const AbnormalSearch= React.createClass({
    getInitialState() {
     return {
       data: [],
@@ -574,7 +380,7 @@ const Abnormal= React.createClass({
       },
       loading: false,
       gaojisousuoVislble:false,
-      Search:{
+      Abnormal:{
         visible:false,
         params:{}
       }
@@ -637,7 +443,7 @@ const Abnormal= React.createClass({
     }
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/abnormal/list',
+      url:web_config.http_request_domain+'/proc/abnormal/list2',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:params,
@@ -652,12 +458,11 @@ const Abnormal= React.createClass({
           return;
         }
         const pagination = this.state.pagination;
-        pagination.total = result.data.O_T_ABNORMAL_TRADE.count;
-        pagination.current = result.data.O_T_ABNORMAL_TRADE.currentPage;
-        servicetype=result.data.O_T_TERM_SERVICE;
+        pagination.total = result.data.O_ABNORMAL_HISTORY.count;
+        pagination.current = result.data.O_ABNORMAL_HISTORY.currentPage;
         this.setState({
           loading: false,
-          data: result.data.O_T_ABNORMAL_TRADE.data,
+          data: result.data.O_ABNORMAL_HISTORY.data,
           pagination,
         });
       },
@@ -669,38 +474,11 @@ const Abnormal= React.createClass({
       }
     });
   },
-  fetchEdit(evtName,data){
-    let editParams=commonFunction.objExtend({},data);
-    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
-    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
-    listParams=commonFunction.objExtend(listParams,this.state.pagination);
-    this.setState({ loading: true });
-    reqwest({
-      url:web_config.http_request_domain+editParams.url,
-      method: 'POST',
-      timeout :web_config.http_request_timeout,
-      data:editParams,
-      crossOrigin: web_config.http_request_cross, //跨域
-      type: "json",
-      success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip('交易流水'+editParams.TDDT_TERM_SN+'，处理异常成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip('交易流水'+editParams.TDDT_TERM_SN+'，'+result.data.MSG,2,'error');
-        this.fetchList(listParams);
-      },
-      error:()=>{
-        commonFunction.MessageTip('交易流水'+editParams.TDDT_TERM_SN+'，处理异常失败',2,'error');
-        this.fetchList(listParams);
-      }
-    });
-  },
   componentDidMount() {
     this.fetchList();
-    // 订阅 编辑 的事件
-    PubSub.subscribe(PageName+"Edit",this.fetchEdit);
   },
   componentWillUnmount(){
     //退订事件
-    PubSub.unsubscribe(PageName+"Edit");
   },
   filterDisplay(){
     this.setState({
@@ -734,18 +512,17 @@ const Abnormal= React.createClass({
       current:1
     });
   },
-  handleSearch(){
-    PubSub.unsubscribe(PageName+"Edit");
+  handleAbnormal(){
     this.setState({
-      Search:{
+      Abnormal:{
         visible:true,
         params:''
       }
     });
   },
   render() {
-    if(this.state.Search.visible==true){
-      return (<AbnormalSearch {...this.state.Search.params}/>)
+    if(this.state.Abnormal.visible==true){
+      return (<Abnormal {...this.state.Abnormal.params}/>)
     }
     const FilterLayerContent= (
       <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
@@ -762,7 +539,7 @@ const Abnormal= React.createClass({
       <Col span="1" style={{marginLeft:-20}}>
         <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
       </Col>
-        <Col span="12" className="table-add-layer"><span className="table-add-btn Alink" onClick={this.handleSearch} >(异常交易历史查询)</span></Col>
+        <Col span="12" className="table-add-layer"><Button onClick={this.handleAbnormal} className="table-return-btn" type="primary" htmlType="submit"><Icon type="rollback" />返回异常交易处理</Button></Col>
       </Row>
         <div className="margin-top-10"></div>
         <Table columns={columns}
@@ -781,4 +558,4 @@ const Abnormal= React.createClass({
 
 
 
-export default Abnormal;
+export default AbnormalSearch;

@@ -13,6 +13,8 @@ const confirm = Modal.confirm;
 //页面名称
 const PageName='role';
 
+//权限
+let rolePower;
 
 //指定表格每列内容
 const columns = [
@@ -286,18 +288,8 @@ let PowerModalContent =React.createClass({
       loading:false,//确定按钮状态
       nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
       contentV:this.props.contentValue,
-      targetKeys:[1],
-      mockData:[{
-        key: 1,
-        title: `内容2221`,
-        description: "内容1222",
-        chosen: Math.random() * 2 > 1
-      },{
-        key: 2,
-        title: `内容22`,
-        description: "内容1222",
-        chosen: Math.random() * 2 > 1
-      }]
+      targetKeys:this.props.contentValue.power,
+      mockData:rolePower
     }
   },
   componentWillReceiveProps(){
@@ -315,22 +307,20 @@ let PowerModalContent =React.createClass({
       }
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
        /*！！两个对象长度不等可能会导致不正确判断*/
-      //  let aProps = Object.getOwnPropertyNames(values);
-      //  let bProps = Object.getOwnPropertyNames(this.state.nochangecontentV);
+      //  let aProps = this.state.targetKeys;
+      //  let bProps = this.state.nochangecontentV.power;
       //  let hasChanged=0; /*0表示没有改变*/
-      //    for (let i = 0; i < aProps.length; i++) {
-      //      let propName = aProps[i];
-      //      if (values[propName] != this.state.nochangecontentV[propName]) {
-      //        hasChanged=1;
-      //     }
-      //    }
+       //
+      //  for (let i = 0; i < aProps.length; i++) {
+       //
+      //  }
       //  if(hasChanged==0){
       //    this.handleCancel();
       //    return;
       //  }
-      console.log(values);
-      let params=commonFunction.objExtend({ROLE_ID:this.state.nochangecontentV.ROLE_ID},values);
-      //发布 编辑 事件
+
+      let params=commonFunction.objExtend({ROLE_NAME:this.state.nochangecontentV.ROLE_NAME,ROLE_ID:this.state.nochangecontentV.ROLE_ID,POWER_LIST:JSON.stringify(this.state.targetKeys)},values);
+      //发布 权限配置 事件
       this.state.loading=true;
       this.props.modalClose();
       PubSub.publish(PageName+"PowerEdit",params);
@@ -359,11 +349,15 @@ let PowerModalContent =React.createClass({
        <Form horizontal form={this.props.form}>
         <FormItem style={{marginLeft:80}}>
           <Transfer
-            titles={['未拥有权限','已拥有权限']}
+            titles={['禁用权限','可用权限']}
             dataSource={this.state.mockData}
             targetKeys={this.state.targetKeys}
             notFoundContent="暂无"
             render={item => item.title}
+            listStyle={{
+                width: 250,
+                height: 300,
+            }}
             {...getFieldProps('ROLE_POWER',{
               onChange:this.handleChange
             })}/>
@@ -432,7 +426,7 @@ const Edit = React.createClass({
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
-          width="550"
+          width="700"
           visible={this.state.pvisible}
           title={'配置权限-'+this.props.ROLE_NAME}
           onCancel={this.handlePowerCancel}
@@ -687,6 +681,7 @@ const Role= React.createClass({
         const pagination = this.state.pagination;
         pagination.total = result.data.O_ROLE.count;
         pagination.current = result.data.O_ROLE.currentPage;
+        rolePower=result.data.O_ROLE_POWER;
         this.setState({
           loading: false,
           data: result.data.O_ROLE.data,
@@ -720,7 +715,7 @@ const Role= React.createClass({
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(params.ROLE_NAME+'，编辑失败',2,'error');
+        commonFunction.MessageTip(editParams.ROLE_NAME+'，编辑失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -770,6 +765,30 @@ const Role= React.createClass({
       }
     });
   },
+  fetchPowerEdit(evtName,data){
+    let editParams=commonFunction.objExtend({},data);
+    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
+    listParams=commonFunction.objExtend(listParams,this.state.pagination);
+    this.setState({ loading: true });
+    reqwest({
+      url:web_config.http_request_domain+'/proc/role/powerupdate',
+      method: 'POST',
+      timeout :web_config.http_request_timeout,
+      data:editParams,
+      crossOrigin: web_config.http_request_cross, //跨域
+      type: "json",
+      success: (result) => {
+        result.data.ERROR==0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，配置权限成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，'+result.data.MSG,2,'error');
+        this.fetchList(listParams);
+      },
+      error:()=>{
+        commonFunction.MessageTip(editParams.ROLE_NAME+'，配置权限失败',2,'error');
+        this.fetchList(listParams);
+      }
+    });
+  },
   componentDidMount() {
     this.fetchList();
     // 订阅 编辑 的事件
@@ -778,12 +797,15 @@ const Role= React.createClass({
     PubSub.subscribe(PageName+"Add",this.fetchAdd);
     // 订阅 删除 的事件
     PubSub.subscribe(PageName+"Delete",this.fetchDelete);
+    // 订阅 配置权限 的事件
+    PubSub.subscribe(PageName+"PowerEdit",this.fetchPowerEdit);
   },
   componentWillUnmount(){
     //退订事件
     PubSub.unsubscribe(PageName+"Edit");
     PubSub.unsubscribe(PageName+"Add");
     PubSub.unsubscribe(PageName+"Delete");
+    PubSub.unsubscribe(PageName+"PowerEdit");
   },
   filterDisplay(){
     this.setState({
