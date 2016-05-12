@@ -683,8 +683,17 @@ const Abnormal= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         result.data.ERROR==0&&commonFunction.MessageTip('交易流水'+editParams.TDDT_TERM_SN+'，处理异常成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip('交易流水'+editParams.TDDT_TERM_SN+'，'+result.data.MSG,2,'error');
+        this.setState({
+          loading: false
+        });
         this.fetchList(listParams);
       },
       error:()=>{

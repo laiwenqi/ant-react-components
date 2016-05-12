@@ -5,6 +5,9 @@ import {Breadcrumb,Transfer, Cascader ,TimePicker ,Tree,Steps,Badge,DatePicker,R
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
+
+import Service from '../web/device_service.jsx';
+
 import './device.less';
 const FormItem = Form.Item;
 const createForm = Form.create;
@@ -47,100 +50,7 @@ const devStatusList=devStatus.map(function(item){
     return (<Option value={String(item.value)} >{item.text}</Option>)
 });
 
-//定义 配置服务
-const serviceList=[{
-  'key':'sub1',
-  'title':'支付',
-  'contain':[{
-    'key':'sub1-1',
-    'title':'现金支付',
-    'contain':[{
-      'key':'sub1-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub1-2',
-    'title':'后台系统支付',
-    'contain':[{
-      'key':'sub1-2-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub1-3',
-    'title':'银联支付',
-    'contain':[{
-      'key':'sub1-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub1-4',
-    'title':'冲正支付',
-    'contain':[{
-      'key':'sub1-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub1-5',
-    'title':'其它非现金支付方式',
-    'contain':[{
-      'key':'sub1-1-1',
-      'title':'现金交易用户'
-    }]
-  }]
-},{
-  'key':'sub2',
-  'title':'充值',
-  'contain':[{
-    'key':'sub2-1',
-    'title':'卡类售卡',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-2',
-    'title':'卡类消费',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-3',
-    'title':'卡类充值',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-4',
-    'title':'卡类回收',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-5',
-    'title':'水费缴费服务',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-6',
-    'title':'电费缴费服务',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  },{
-    'key':'sub2-7',
-    'title':'综合缴费服务',
-    'contain':[{
-      'key':'sub2-1-1',
-      'title':'现金交易用户'
-    }]
-  }]
-}];
+
 
 const options = [{
   value: 'zhejiang',
@@ -209,7 +119,7 @@ const columns = [{
 let SearchInput = React.createClass({
   getInitialState() {
     return {
-      DEV_KEY: '',
+      FILTER_KEY: '',
       focus: false,
     };
   },
@@ -228,7 +138,7 @@ let SearchInput = React.createClass({
   },
   handleInputChange(e) {
     this.setState({
-      DEV_KEY: e.target.value,
+      FILTER_KEY: e.target.value,
     });
   },
   handleFocusBlur(e) {
@@ -238,7 +148,7 @@ let SearchInput = React.createClass({
   },
   handleSearch(e) {
     let params={};
-    params.DEV_KEY=this.state.DEV_KEY.trim();
+    params.FILTER_KEY=this.state.FILTER_KEY.trim();
     params.type="defaultSearch";
     if (this.props.onSearch) {
       this.props.onSearch(params);
@@ -247,7 +157,7 @@ let SearchInput = React.createClass({
   render() {
     const btnCls = classNames({
       'ant-search-btn': true,
-      'ant-search-btn-noempty': !!this.state.DEV_KEY.trim(),
+      'ant-search-btn-noempty': !!this.state.FILTER_KEY.trim(),
     });
     const searchCls = classNames({
       'ant-search-input': true,
@@ -255,7 +165,7 @@ let SearchInput = React.createClass({
     });
     return (
       <InputGroup className={searchCls} style={this.props.style}>
-        <Input {...this.props} value={this.state.DEV_KEY} onChange={this.handleInputChange}
+        <Input {...this.props} value={this.state.FILTER_KEY} onChange={this.handleInputChange}
           onFocus={this.handleFocusBlur} onBlur={this.handleFocusBlur} />
           <div className="ant-input-group-wrap">
             <Button className={btnCls} size={this.props.size} onClick={this.handleSearch}>
@@ -323,7 +233,6 @@ FilterLayer = Form.create()(FilterLayer);
 //点击操作编辑 弹窗内容
 let ModalContent =React.createClass({
   getInitialState() {
-    console.log(configFile);
     return {
       stepCurrent:0,//步骤条已完成的步骤数
       sureButtonWord:'下一步',
@@ -346,6 +255,8 @@ let ModalContent =React.createClass({
     //每次打开还原表单的值
     if(this.props.visible==false){
       this.setState({
+        targetKeys:[],
+        loading:false,
         stepCurrent:0,
         sureButtonWord:"下一步",
         lastStepButtonVisible:"el-display-none",
@@ -361,11 +272,21 @@ let ModalContent =React.createClass({
     if(i==0){
       const {  getFieldValue } = this.props.form;
       //加载参数配置
+      let paramsDate,paramsUrl='';
+      let DVMD_ID=getFieldValue("DVMD_ID");
+      if(this.state.nochangecontentV.DVMD_ID == DVMD_ID){
+        paramsUrl='/proc/device/typeparalist2';
+        paramsDate={DEV_ID:this.state.nochangecontentV.DEV_ID};
+      }else{
+        paramsUrl='/proc/device/typeparalist';
+        paramsDate={DVMD_ID:DVMD_ID};
+      }
+
       reqwest({
-        url:web_config.http_request_domain+'/proc/device/typeparalist',
+        url:web_config.http_request_domain+paramsUrl,
         method: 'POST',
         timeout :web_config.http_request_timeout,
-        data:{DVMD_ID:getFieldValue("DVMD_ID")},
+        data:paramsDate,
         crossOrigin: web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
@@ -393,10 +314,10 @@ let ModalContent =React.createClass({
       const {  getFieldValue } = this.props.form;
       //加载模块配置
       reqwest({
-        url:web_config.http_request_domain+'/proc/device/modulelist',
+        url:web_config.http_request_domain+'/proc/device/modulelist2',
         method: 'POST',
         timeout :web_config.http_request_timeout,
-        data:{DVMD_ID:getFieldValue("DVMD_ID")},
+        data:{DVMD_ID:getFieldValue("DVMD_ID"),DEV_ID:this.state.nochangecontentV.DEV_ID},
         crossOrigin: web_config.http_request_cross, //跨域
         type: "json",
         success: (result) => {
@@ -455,11 +376,11 @@ let ModalContent =React.createClass({
 
 
     //完成了
-    if(this.state.stepCurrent>=4){
+    if(this.state.stepCurrent>=3){
       this.handleSubmit();
       return;
     }
-    if(this.state.stepCurrent==3){
+    if(this.state.stepCurrent==2){
       this.setState({
         stepCurrent:this.state.stepCurrent+1,
         sureButtonWord:"保存",
@@ -494,12 +415,11 @@ let ModalContent =React.createClass({
   //  e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
+        commonFunction.MessageTip('编辑信息有误',2,'warn');
         console.log('Errors in form!!!');
         return;
       }
 
-      console.log(values);
-      return;
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
        /*！！两个对象长度不等可能会导致不正确判断*/
        let aProps = Object.getOwnPropertyNames(values);
@@ -515,11 +435,94 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
-      let params=commonFunction.objExtend({DEV_ID:this.state.nochangecontentV.DEV_ID},values);
+
+      let v=commonFunction.objExtend({},values);
+      v.DEV_END_TIME=commonFunction.formatTime(v.DEV_END_TIME,"hh:mm");
+      v.DEV_START_TIME=commonFunction.formatTime(v.DEV_START_TIME,"hh:mm");
+      v.DEV_END_TIME = v.DEV_END_TIME.replace(/:/g,"");
+      v.DEV_START_TIME = v.DEV_START_TIME.replace(/:/g,"");
+
+
+      let params=commonFunction.objExtend({DEV_ID:this.state.nochangecontentV.DEV_ID},v);
+
+      //这里是处理参数配置数据
+      let devparams=[];
+      for(let i in params){
+          if(/^settingParams_/.test(i) && typeof params[i]=='string' ){
+            if (values['DVMD_ID'] != this.state.nochangecontentV['DVMD_ID']) {
+              devparams.push({
+                DVMD_ID:values['DVMD_ID'],
+                DEV_ID:'',
+                DVTP_ID:'',
+                DVPR_VALUE:params[i],
+                DVPR_NAME:i.replace(/settingParams_/, ""),
+                DVPR_CLASS:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVTP_CLASS,
+                DVPR_DESC_NAME:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_DESC_NAME,
+                DVPR_VAL_TYPE:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_VAL_TYPE,
+                DVPR_IF_KEY:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_IF_KEY,
+                DVPR_INFO:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_INFO,
+                IS_USING:1
+              });
+            }else{
+              devparams.push({
+                DVMD_ID:values['DVMD_ID'],
+                DEV_ID:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DEV_ID,
+                DVTP_ID:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVTP_ID,
+                DVPR_VALUE:params[i],
+                DVPR_NAME:i.replace(/settingParams_/, ""),
+                DVPR_CLASS:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVPR_CLASS,
+                DVPR_DESC_NAME:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVPR_DESC_NAME,
+                DVPR_VAL_TYPE:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVPR_VAL_TYPE,
+                DVPR_IF_KEY:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVPR_IF_KEY,
+                DVPR_INFO:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVPR_INFO,
+                IS_USING:1
+              });
+            }
+          }
+      }
+
+      //这里是处理模块配置数据
+      let devmodule=[];
+      for(let i in params){
+          if(/^settingModule_/.test(i) && typeof params[i]=='string' ){
+            devmodule.push({
+              DVFT_ID:params[i],
+              DEV_ID:'',
+              DFTG_NO:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_NO,
+              DFTG_MODULE_NAME:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_NAME,
+              DFTG_TYPE:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_TYPE,
+              DFTG_NAME:'',
+              DFTG_PRODUCER:'',
+              DFTG_VERSION:'',
+              DFTG_STANDARD:'',
+              DFTG_PARAM:'',
+              DFTG_CHANNEL_NUM:'',
+              DFTG_DESC:'',
+              IS_USING:1
+            });
+          }
+      }
+
+      //这里是模块配置数据
+      let devconfig=[];
+      for(let i=0;i<this.state.targetKeys.length;i++){
+        devconfig.push({
+          DEV_ID:'',
+          DVCF_ID:this.state.targetKeys[i]
+        });
+      }
+
+      params=commonFunction.objExtend({
+        TYPEPARA:JSON.stringify(devparams),
+        MODULE:JSON.stringify(devmodule),
+        CONFIG:JSON.stringify(devconfig)
+      },params);
+
+
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
-      PubSub.publish("devEdit",params);
+      PubSub.publish(PageName+"Edit",params);
     });
   },
   handleCancel() {
@@ -544,7 +547,8 @@ let ModalContent =React.createClass({
       this.setState({ targetKeys });
   },
   render() {
-     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+     const { getFieldValue,getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+
 
      const organizationList=organization.map(function(item){
         return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
@@ -567,39 +571,52 @@ let ModalContent =React.createClass({
 
 
 
-     const serviceListHtml=serviceList.map(function(item){
-       let type_l2=item.contain.map(function(item2){
-         let u_l3=item2.contain.map(function(item3){
-           return(
-             <Menu.Item key={item3.key}><Checkbox/>{item3.title}</Menu.Item>
-           )
-         });
-         return(
-           <SubMenu key={item2.key} title={<span><span>{item2.title}</span></span>}>
-            {u_l3}
-           </SubMenu>
-         )
-       });
-       return(
-         <SubMenu key={item.key} title={<span><span>{item.title}</span></span>}>
-            {type_l2}
-         </SubMenu>
-       )
-     });
-
      let paramsHtml='';
      if(this.state.params.length>0){
-       paramsHtml=this.state.params.map(function(item){
-         return(
-           <FormItem
-             label={item.DTPR_NAME+"："}>
-             <Input placeholder={"请输入参数"+item.DTPR_NAME}  {...getFieldProps("settingParams_"+item.DTPR_NAME,{
-                 rules: [{ required: item.DTPR_IF_KEY==1?true:false, message: '请填写参数'+item.DTPR_NAME }],
-                 initialValue:item.DTPR_DEFAULT_VAL
-             })}  style={{ width: 163 }} />
-           </FormItem>
-         )
-       });
+       if(this.state.nochangecontentV.DVMD_ID==getFieldValue("DVMD_ID")){
+         paramsHtml=this.state.params.map(function(item){
+           return(
+             <div className="div-inline">
+             <FormItem
+               label={item.DVPR_NAME+"："}>
+               <Input placeholder={"请输入参数"+item.DVPR_NAME}  {...getFieldProps("settingParams_"+item.DVPR_NAME,{
+                   rules: [{ required: item.DVPR_IF_KEY==1?true:false, message: '请填写参数'+item.DVPR_NAME }],
+                   initialValue:item.DVPR_VALUE
+               })}  style={{ width: 163 }} />
+             </FormItem>
+             <div className="el-display-none">
+                 <FormItem>
+                   <Input className="el-display-none"   {...getFieldProps("settingParams_"+item.DVPR_NAME+"_DATA",{
+                       initialValue:item
+                   })}  />
+                 </FormItem>
+             </div>
+             </div>
+           )
+         });
+       }else{
+         paramsHtml=this.state.params.map(function(item){
+           return(
+             <div className="div-inline">
+             <FormItem
+               label={item.DTPR_NAME+"："}>
+               <Input placeholder={"请输入参数"+item.DTPR_NAME}  {...getFieldProps("settingParams_"+item.DTPR_NAME,{
+                   rules: [{ required: item.DTPR_IF_KEY==1?true:false, message: '请填写参数'+item.DTPR_NAME }],
+                   initialValue:item.DTPR_DEFAULT_VAL
+               })}  style={{ width: 163 }} />
+             </FormItem>
+             <div className="el-display-none">
+                 <FormItem>
+                   <Input className="el-display-none"   {...getFieldProps("settingParams_"+item.DTPR_NAME+"_DATA",{
+                       initialValue:item
+                   })}  />
+                 </FormItem>
+             </div>
+             </div>
+           )
+         });
+       }
+
      }
 
      let moduleHtml='';
@@ -610,14 +627,24 @@ let ModalContent =React.createClass({
            return  (<Option value={String(item.VALUE)} >{item.TEXT}</Option>)
          });
          return(
+            <div className="div-inline">
            <FormItem
              label={item.DVML_NAME+"："}>
                <Select id="select" size="large" placeholder={"请选择"+item.DVML_NAME} {...getFieldProps('settingModule_'+item.DVML_ID,{
-                   rules: [],
+                   rules: [{ required:true, message: '请选择模块配件'}],
+                   initialValue:String(item.VALUE)
                })} style={{ width: 300 }}>
                  { fittingsList }
                </Select>
            </FormItem>
+           <div className="el-display-none">
+               <FormItem>
+                 <Input className="el-display-none"   {...getFieldProps("settingModule_"+item.DVML_ID+"_DATA",{
+                     initialValue:item
+                 })}  />
+               </FormItem>
+           </div>
+            </div>
          )
        });
      }
@@ -629,7 +656,6 @@ let ModalContent =React.createClass({
         <Step title="参数"  />
         <Step title="模块"  />
         <Step title="文件"  />
-        <Step title="服务"  />
       </Steps>
       <br/>
        <Form inline form={this.props.form}>
@@ -703,12 +729,12 @@ let ModalContent =React.createClass({
              label="&nbsp;&nbsp;工作时间： "
              required>
               <TimePicker placeholder="开始时间"  format="HH:mm" {...getFieldProps('DEV_START_TIME',{
-                  rules: [{ required: true, message: '请选择使用状态' }],
+                  //rules: [{ required: true, message: '请选择开始时间' }],
                   initialValue:this.state.contentV.DEV_START_TIME==0?commonFunction.insert_flg("0000",":",2):commonFunction.insert_flg(commonFunction.fillingStr(this.state.contentV.DEV_START_TIME,'0',4,0),":",2)
               })} />
                   &nbsp;&nbsp;  ~ &nbsp;&nbsp;
               <TimePicker placeholder="结束时间"   format="HH:mm" {...getFieldProps('DEV_END_TIME',{
-                  rules: [{ required: true, message: '请选择使用状态' }],
+                  //rules: [{ required: true, message: '请选择结束时间'}],
                   initialValue:this.state.contentV.DEV_END_TIME==0?commonFunction.insert_flg("0000",":",2):commonFunction.insert_flg(commonFunction.fillingStr(this.state.contentV.DEV_END_TIME,'0',4,0),":",2)
               })} />
            </FormItem>
@@ -750,52 +776,25 @@ let ModalContent =React.createClass({
        </div>
 
        <div className={this.state.stepVisible[3]} style={{marginLeft:15}}>
-        <Transfer
-           titles={['可选文件','已配置文件']}
-           dataSource={this.state.mockData}
-           targetKeys={this.state.targetKeys}
-           notFoundContent="暂无"
-           render={item => item.title}
-           listStyle={{
-               width: 250,
-               height: 300,
-           }}
-           {...getFieldProps('configFile',{
-             onChange:this.handleConfigFileChange
-           })} />
+          <FormItem style={{marginLeft:10}} >
+            <Transfer
+               titles={['可选文件','已配置文件']}
+               dataSource={this.state.mockData}
+               targetKeys={this.state.targetKeys}
+               notFoundContent="暂无"
+               render={item => item.title}
+               listStyle={{
+                   width: 240,
+                   height: 300,
+               }}
+               {...getFieldProps('configFile',{
+                 onChange:this.handleConfigFileChange
+               })} />
+           </FormItem>
            <div className="margin-top-10"></div>
        </div>
 
-       <div className={this.state.stepVisible[4]} >
-        <div className="server-left">
-          <Menu style={{ width: 100 }} mode="vertical">
-              { serviceListHtml }
-           </Menu>
-        </div>
-        <div className="server-right">
-          <div className="server-header">
-            <Breadcrumb separator=">">
-                <Breadcrumb.Item>支付</Breadcrumb.Item>
-                <Breadcrumb.Item href="">现金支付</Breadcrumb.Item>
-                <Breadcrumb.Item>现金交易用户</Breadcrumb.Item>
-            </Breadcrumb>
-          </div>
-                <div className="server-body">
-                    <FormItem
-                      label="外部编码：">
-                     <Input placeholder="请输入参数1"  defaultValue={this.state.contentV.DEV_SN} style={{ width: 163 }} />
-                    </FormItem>
-                    <br/>
-                    <FormItem
-                      id="control-textarea"
-                      label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;描述：">
-                      <Input type="textarea"  rows="5" placeholder="请输入描述" {...getFieldProps('ROLE_INFO',{
-                          rules: [{max: 128, message: '描述至多为 128 个字符'}]
-                      })}   style={{ width: 320 }}/>
-                    </FormItem>
-                  </div>
-        </div>
-       </div>
+
        <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
             <Button type="primary" className={"ant-btn ant-btn-primary ant-btn-lg "+this.state.lastStepButtonVisible}   onClick={this.handleBack} >上一步</Button>
@@ -807,6 +806,8 @@ let ModalContent =React.createClass({
    }
 });
 ModalContent = Form.create()(ModalContent);
+
+
 
 
 
@@ -838,10 +839,17 @@ const Edit = React.createClass({
       content: '',
       onOk() {
         //发布 删除 事件
-        PubSub.publish("devDelete",DELETE_PARAMS);
+        PubSub.publish(PageName+"Delete",DELETE_PARAMS);
       },
       onCancel() {}
     });
+  },
+  showService(){
+    let DEVICE_PARAMS={
+      DEV_ID:this.props.DEV_ID, //需要的ID
+      DEV_NAME:this.props.DEV_NAME //需要的名字
+    };
+    PubSub.publish(PageName+"PeiZhiService",DEVICE_PARAMS);
   },
   render() {
     let deleteButton=(<div></div>);
@@ -850,8 +858,12 @@ const Edit = React.createClass({
     }
     return (
       <div>
+        <a type="primary" onClick={this.showService}>配置服务</a>
+          <span className="ant-divider"></span>
         <a type="primary" onClick={this.showModal} {...this.props}>编辑</a>
         { deleteButton }
+
+
         <Modal ref="modal"
           width="600"
           visible={this.state.visible}
@@ -893,6 +905,7 @@ const NewAdd= React.createClass({
       <div>
         <Button type="primary" onClick={this.showModal} className="table-add-btn">添加终端<Icon type="plus-square" /></Button>
         <Modal ref="modal"
+          width="600"
           visible={this.state.visible}
           title="添加终端"
           onCancel={this.handleCancel}
@@ -911,53 +924,510 @@ const NewAdd= React.createClass({
 let NewAddModalContent =React.createClass({
   getInitialState() {
     return {
+      stepCurrent:0,//步骤条已完成的步骤数
+      sureButtonWord:'下一步',
+      lastStepButtonVisible:"el-display-none",
+      stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"],
+      loading:false,//确定按钮状态
+      params:[],//配置参数的
+      module:[],//配置模块的
+      fittings:[],//模块配件的
+      file:[],//配置文件的
+      targetKeys:[],
+      mockData:configFile
     }
   },
   componentWillReceiveProps(){
     //每次打开还原表单的值
     if(this.props.visible==false){
+      this.setState({
+        targetKeys:[],
+        loading:false,
+        stepCurrent:0,
+        sureButtonWord:"下一步",
+        lastStepButtonVisible:"el-display-none",
+        stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"]
+      });
       this.props.form.resetFields();
     }
   },
+  handleNext(){
+    let i=this.state.stepCurrent;
+    this.state.stepVisible[i]="el-display-none";
+    this.state.stepVisible[i+1]="";
+    if(i==0){
+      const {  getFieldValue } = this.props.form;
+      //加载参数配置
+      reqwest({
+        url:web_config.http_request_domain+'/proc/device/typeparalist',
+        method: 'POST',
+        timeout :web_config.http_request_timeout,
+        data:{DVMD_ID:(getFieldValue("DVMD_ID")==null?-1:getFieldValue("DVMD_ID"))},
+        crossOrigin: web_config.http_request_cross, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.ERROR!=0){
+            commonFunction.MessageTip(result.data.MSG,2,'error');
+            this.setState({
+              loading: false
+            });
+            return;
+          }
+          this.setState({
+            params:result.data.RESULT
+          });
+        },
+        error:()=>{
+          commonFunction.MessageTip('获取数据失败',2,'error');
+          this.setState({
+            loading: false
+          });
+        }
+      });
+    }
+
+    if(i==1){
+      const {  getFieldValue } = this.props.form;
+      //加载模块配置
+      reqwest({
+        url:web_config.http_request_domain+'/proc/device/modulelist',
+        method: 'POST',
+        timeout :web_config.http_request_timeout,
+        data:{DVMD_ID:(getFieldValue("DVMD_ID")==null?-1:getFieldValue("DVMD_ID"))},
+        crossOrigin: web_config.http_request_cross, //跨域
+        type: "json",
+        success: (result) => {
+          if(result.data.ERROR!=0){
+            commonFunction.MessageTip(result.data.MSG,2,'error');
+            this.setState({
+              loading: false
+            });
+            return;
+          }
+          this.setState({
+            module:result.data.RESULT,
+            fittings:result.data.RESULT.O_FITTINGS
+          });
+        },
+        error:()=>{
+          commonFunction.MessageTip('获取数据失败',2,'error');
+          this.setState({
+            loading: false
+          });
+        }
+      });
+    }
+
+
+    if(i==2){
+      const {  getFieldValue } = this.props.form;
+      //加载文件配置
+      // reqwest({
+      //   url:web_config.http_request_domain+'/proc/device/config',
+      //   method: 'POST',
+      //   timeout :web_config.http_request_timeout,
+      //   data:{DEV_ID:-1},
+      //   crossOrigin: web_config.http_request_cross, //跨域
+      //   type: "json",
+      //   success: (result) => {
+      //     if(result.data.ERROR!=0){
+      //       commonFunction.MessageTip(result.data.MSG,2,'error');
+      //       this.setState({
+      //         loading: false
+      //       });
+      //       return;
+      //     }
+      //     this.setState({
+      //         targetKeys:result.data.RESULT
+      //     });
+      //   },
+      //   error:()=>{
+      //     commonFunction.MessageTip('获取数据失败',2,'error');
+      //     this.setState({
+      //       loading: false
+      //     });
+      //   }
+      // });
+    }
+
+
+    //完成了
+    if(this.state.stepCurrent>=3){
+      this.handleSubmit();
+      return;
+    }
+    if(this.state.stepCurrent==2){
+      this.setState({
+        stepCurrent:this.state.stepCurrent+1,
+        sureButtonWord:"保存",
+        lastStepButtonVisible:""
+      });
+      return;
+    }
+    this.setState({
+      stepCurrent:this.state.stepCurrent+1,
+      lastStepButtonVisible:""
+    });
+  },
+  handleBack(){
+    let i=this.state.stepCurrent;
+    this.state.stepVisible[i]="el-display-none";
+    this.state.stepVisible[i-1]="";
+    if(this.state.stepCurrent==1){
+      this.setState({
+        stepCurrent:this.state.stepCurrent-1,
+        sureButtonWord:"下一步",
+        lastStepButtonVisible:"el-display-none",
+        stepVisible:["","el-display-none","el-display-none","el-display-none","el-display-none"]
+      });
+      return;
+    }
+    this.setState({
+      stepCurrent:this.state.stepCurrent-1,
+      sureButtonWord:"下一步"
+    });
+  },
   handleSubmit(e) {
-    e.preventDefault();
+  //  e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
+        commonFunction.MessageTip('编辑信息有误',2,'warn');
         console.log('Errors in form!!!');
         return;
       }
-      let params=values;
-      //发布 新增 事件
-      PubSub.publish("devAdd",params);
+
+      let v=commonFunction.objExtend({},values);
+      v.DEV_END_TIME=commonFunction.formatTime(v.DEV_END_TIME,"hh:mm");
+      v.DEV_START_TIME=commonFunction.formatTime(v.DEV_START_TIME,"hh:mm");
+      v.DEV_END_TIME = v.DEV_END_TIME.replace(/:/g,"");
+      v.DEV_START_TIME = v.DEV_START_TIME.replace(/:/g,"");
+
+
+      let params=v;
+
+      //这里是处理参数配置数据
+      let devparams=[];
+      for(let i in params){
+          if(/^settingParams_/.test(i) && typeof params[i]=='string' ){
+            devparams.push({
+              DEV_ID:'',
+              DVTP_ID:'',
+              DVPR_VALUE:params[i],
+              DVPR_NAME:i.replace(/settingParams_/, ""),
+              DVPR_CLASS:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DVTP_CLASS,
+              DVPR_DESC_NAME:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_DESC_NAME,
+              DVPR_VAL_TYPE:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_VAL_TYPE,
+              DVPR_IF_KEY:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_IF_KEY,
+              DVPR_INFO:values["settingParams_"+i.replace(/settingParams_/, "")+"_DATA"].DTPR_INFO,
+              IS_USING:1
+            });
+          }
+      }
+
+      //这里是处理模块配置数据
+      let devmodule=[];
+      for(let i in params){
+          if(/^settingModule_/.test(i) && typeof params[i]=='string' ){
+            devmodule.push({
+              DVFT_ID:params[i],
+              DEV_ID:'',
+              DFTG_NO:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_NO,
+              DFTG_MODULE_NAME:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_NAME,
+              DFTG_TYPE:values["settingModule_"+i.replace(/settingModule_/, "")+"_DATA"].DVML_TYPE,
+              DFTG_NAME:'',
+              DFTG_PRODUCER:'',
+              DFTG_VERSION:'',
+              DFTG_STANDARD:'',
+              DFTG_PARAM:'',
+              DFTG_CHANNEL_NUM:'',
+              DFTG_DESC:'',
+              IS_USING:1
+            });
+          }
+      }
+
+      //这里是服务配置数据
+      let devconfig=[];
+      for(let i=0;i<this.state.targetKeys.length;i++){
+        devconfig.push({
+          DEV_ID:'',
+          DVCF_ID:this.state.targetKeys[i]
+        });
+      }
+
+      params=commonFunction.objExtend({
+        TYPEPARA:JSON.stringify(devparams),
+        MODULE:JSON.stringify(devmodule),
+        CONFIG:JSON.stringify(devconfig)
+      },params);
+
+
+      //发布 编辑 事件
+      this.state.loading=true;
       this.props.modalClose();
+      PubSub.publish(PageName+"Add",params);
     });
   },
-  handleCancel(){
+  handleCancel() {
     this.props.modalClose();
   },
-  checkOther(rule, value, callback){
-    callback();
+  handleDevTypeChange(value){
+    this.setState({
+      version:value
+    });
+  },
+  getValidateStatus(field) {
+   const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
+   if (isFieldValidating(field)) {
+     return 'validating';
+   } else if (!!getFieldError(field)) {
+     return 'error';
+   } else if (getFieldValue(field)) {
+     return 'success';
+   }
+ },
+  handleConfigFileChange(targetKeys, direction, moveKeys){
+      this.setState({ targetKeys });
   },
   render() {
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
+
+
+     const organizationList=organization.map(function(item){
+        return (<Option value={String(item.ORG_ID)} >{item.ORG_NAME}</Option>)
+     });
+
+     const systemList=system.map(function(item){
+        return (<Option value={String(item.DEV_ID)} >{item.DEV_NAME}</Option>)
+     });
+
+     const devTypeList=devType.map(function(item){
+        return (<Option value={String(item.DVTP_ID)} >{item.DVTP_NAME}</Option>)
+     });
+
+     let versionList=[];
+     if(typeof version[this.state.version]!='undefined'){
+      versionList=version[this.state.version].map(function(item){
+         return (<Option value={String(item.DVMD_ID)} >{item.DVMD_VER}</Option>)
+      });
+     }
+
+
+
+     let paramsHtml='';
+     if(this.state.params.length>0){
+       paramsHtml=this.state.params.map(function(item){
+         return(
+           <div className="div-inline">
+           <FormItem
+             label={item.DTPR_NAME+"："}>
+             <Input placeholder={"请输入参数"+item.DTPR_NAME}  {...getFieldProps("settingParams_"+item.DTPR_NAME,{
+                 rules: [{ required: item.DTPR_IF_KEY==1?true:false, message: '请填写参数'+item.DTPR_NAME }],
+                 initialValue:item.DTPR_DEFAULT_VAL
+             })}  style={{ width: 163 }} />
+           </FormItem>
+           <div className="el-display-none">
+               <FormItem>
+                 <Input className="el-display-none"   {...getFieldProps("settingParams_"+item.DTPR_NAME+"_DATA",{
+                     initialValue:item
+                 })}  />
+               </FormItem>
+           </div>
+           </div>
+         )
+       });
+     }
+
+     let moduleHtml='';
+     if(this.state.module.length>0){
+       moduleHtml=this.state.module.map(function(item){
+         let fittings=JSON.parse(item.CHOOSE);
+         let fittingsList=fittings.map(function(item){
+           return  (<Option value={String(item.VALUE)} >{item.TEXT}</Option>)
+         });
+         return(
+            <div className="div-inline">
+           <FormItem
+             label={item.DVML_NAME+"："}>
+               <Select id="select" size="large" placeholder={"请选择"+item.DVML_NAME} {...getFieldProps('settingModule_'+item.DVML_ID,{
+                   rules: [{ required:true, message: '请选择模块配件'}],
+               })} style={{ width: 300 }}>
+                 { fittingsList }
+               </Select>
+           </FormItem>
+           <div className="el-display-none">
+               <FormItem>
+                 <Input className="el-display-none"   {...getFieldProps("settingModule_"+item.DVML_ID+"_DATA",{
+                     initialValue:item
+                 })}  />
+               </FormItem>
+           </div>
+            </div>
+         )
+       });
+     }
+
      return (
-       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
+       <div>
+       <Steps current={this.state.stepCurrent}>
+        <Step title="基本信息" />
+        <Step title="参数"  />
+        <Step title="模块"  />
+        <Step title="文件"  />
+      </Steps>
+      <br/>
        <Form inline form={this.props.form}>
-       <FormItem
-         label="&nbsp;&nbsp;&nbsp;&nbsp;用户名："
-         labelCol={{ span: 8 }}
-         wrapperCol={{ span: 12 }}
-        //  hasFeedback
-         help={isFieldValidating('DEV_NAME') ? '校验中...' : (getFieldError('DEV_NAME') || []).join(', ')}>
-        <Input placeholder="请输入终端名"  {...getFieldProps('DEV_NAME',{
-            rules: [{ required: true,whitespace:true,message: '请输入终端名' },{validator: this.checkOperAccount}]
-        })} style={{ width: 163 }} />
-        </FormItem>
-        <div className="ant-modal-footer FormItem-modal-footer">
-            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel}>取消</Button>
-            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit}>确定</Button>
-        </div>
+
+       <div className={this.state.stepVisible[0]} style={{marginLeft:30}} >
+          <FormItem
+             label="&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;终端名："
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span: 12 }}>
+            <Input placeholder="请输入终端名" {...getFieldProps('DEV_NAME',{
+                rules: [{ required: true, message: '请输入终端名' }]
+            })}  style={{ width: 163 }} />
+          </FormItem>
+          <FormItem
+            label="序列号："
+            labelCol={{ span: 8 }}
+            wrapperCol={{ span: 12 }}>
+           <Input placeholder="请输入序列号" {...getFieldProps('DEV_SN',{
+               rules: [{ required: true, message: '请输入序列号' }]
+           })}  style={{ width: 163 }} />
+          </FormItem>
+          <FormItem
+             label="归属组织： "
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span:15 }}>
+             <Select id="select" size="large" placeholder="请选择归属组织" {...getFieldProps('ORG_ID',{
+                 rules: [{ required: true, message: '请选择归属组织' }]
+             })} style={{ width: 163 }}>
+               { organizationList }
+             </Select>
+           </FormItem>
+           <FormItem
+             label="归属系统： "
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span:15 }}>
+             <Select id="select" size="large" placeholder="请选择归属系统" {...getFieldProps('DEV_PARENT_ID',{
+                 rules: [{ required: true, message: '请选择归属系统' }],
+                 initialValue:String(1)
+             })} style={{ width: 163 }}>
+               { systemList }
+             </Select>
+           </FormItem>
+           <FormItem
+             label="终端类型： "
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span:15 }}>
+             <Select  id="select" size="large" placeholder="请选择终端类型" {...getFieldProps('DVTP_ID',{
+                 rules: [{ required: true, message: '请选择终端类型' }],
+                 onChange:this.handleDevTypeChange
+             })} style={{ width: 163 }}>
+               { devTypeList }
+             </Select>
+           </FormItem>
+           <FormItem
+             label="终端版本： "
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span:15 }}>
+             <Select id="select" size="large" placeholder="请选择终端版本" {...getFieldProps('DVMD_ID',{
+                 rules: [{ required: true, message: '请选择终端版本' }]
+             })} style={{ width: 163 }}>
+                { versionList }
+             </Select>
+           </FormItem>
+
+           <FormItem
+             label="&nbsp;&nbsp;工作时间： "
+             required>
+              <TimePicker placeholder="开始时间"  format="HH:mm" {...getFieldProps('DEV_START_TIME',{
+                  //rules: [{ required: true, message: '请选择开始时间' }]
+              })} />
+                  &nbsp;&nbsp;  ~ &nbsp;&nbsp;
+              <TimePicker placeholder="结束时间"   format="HH:mm" {...getFieldProps('DEV_END_TIME',{
+                  //rules: [{ required: true, message: '请选择结束时间'}]
+              })} />
+           </FormItem>
+           <FormItem
+             label="使用状态： ">
+             <Select id="select" size="large" placeholder="请选择使用状态" {...getFieldProps('DEV_USE_STATE',{
+                 rules: [{ required: true, message: '请选择使用状态' }]
+             })} style={{ width: 100 }}>
+                { devStatusList }
+             </Select>
+           </FormItem>
+           <br/>
+           <FormItem
+             label="&nbsp;&nbsp;终端地址： "
+             required>
+             <Cascader placeholder="请选择终端地址"  options={options} expandTrigger="hover" {...getFieldProps('DEV_POSITION')} style={{ width:410 }}  />
+           </FormItem>
+           <FormItem
+             id="control-textarea"
+             label="描述："
+             labelCol={{ span: 3 }}
+             wrapperCol={{ span: 15}}>
+             <Input type="textarea" rows="5" {...getFieldProps('DEV_INFO',{
+                 rules: [{max: 124, message: '描述至多为 124 个字符'}]
+             })}  style={{ width: 650 }}/>
+           </FormItem>
+           <FormItem
+             label="添加终端数量："
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span: 12 }}>
+             <InputNumber min={1} max={50} placeholder="请输入添加终端数量" {...getFieldProps('ADD_NUM',{
+                 initialValue:1
+             })} style={{ width: 163 }}/>
+           </FormItem>
+           <FormItem
+             label="终端起始编号："
+             labelCol={{ span: 8 }}
+             wrapperCol={{ span: 12 }}>
+             <InputNumber min={0}  placeholder="请输入终端起始编号" {...getFieldProps('START_NO',{
+                 initialValue:1
+             })} style={{ width: 163 }}/>
+           </FormItem>
+
+       </div>
+
+       <div className={this.state.stepVisible[1]} style={{marginLeft:50}}>
+           { paramsHtml }
+           <div className="margin-top-10"></div>
+       </div>
+
+       <div className={this.state.stepVisible[2]} style={{marginLeft:100}}>
+          { moduleHtml }
+          <div className="margin-top-10"></div>
+       </div>
+
+       <div className={this.state.stepVisible[3]} style={{marginLeft:15}}>
+          <FormItem style={{marginLeft:10}} >
+            <Transfer
+               titles={['可选文件','已配置文件']}
+               dataSource={this.state.mockData}
+               targetKeys={this.state.targetKeys}
+               notFoundContent="暂无"
+               render={item => item.title}
+               listStyle={{
+                   width: 240,
+                   height: 300,
+               }}
+               {...getFieldProps('configFile',{
+                 onChange:this.handleConfigFileChange
+               })} />
+           </FormItem>
+           <div className="margin-top-10"></div>
+       </div>
+
+
+       <div className="ant-modal-footer FormItem-modal-footer">
+            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
+            <Button type="primary" className={"ant-btn ant-btn-primary ant-btn-lg "+this.state.lastStepButtonVisible}   onClick={this.handleBack} >上一步</Button>
+            <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleNext} loading={this.state.loading}>{this.state.sureButtonWord}</Button>
+       </div>
        </Form>
+       </div>
      )
    }
 });
@@ -985,7 +1455,11 @@ const Device= React.createClass({
         // showSizeChanger :true
       },
       loading: false,
-      gaojisousuoVislble:false
+      gaojisousuoVislble:false,
+      Service:{
+        visible:false,
+        params:{}
+      }
     };
   },
   handleTableChange(pagination, filters, sorter) {
@@ -1075,7 +1549,7 @@ const Device= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/device/update',
+      url:web_config.http_request_domain+'/proc/device/devupdate',
       method: 'POST',
       data:editParams,
       timeout :web_config.http_request_timeout,
@@ -1099,10 +1573,11 @@ const Device= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/delete',
+      url:web_config.http_request_domain+'/proc/device/devdelete',
       method: 'POST',
       data:deleteParams,
-      crossOrigin:web_config.cross, //跨域
+      timeout :web_config.http_request_timeout,
+      crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.DEV_NAME+'，删除成功',2,'success');
@@ -1119,10 +1594,11 @@ const Device= React.createClass({
     let addParams=commonFunction.objExtend({},data);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.get_data_domain+'/proc/device/add',
+      url:web_config.http_request_domain+'/proc/device/devadd',
       method: 'POST',
       data:addParams,
-      crossOrigin:web_config.cross, //跨域
+      timeout :web_config.http_request_timeout,
+      crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
         result.data.ERROR==0 && commonFunction.MessageTip(addParams.DEV_NAME+'，添加成功',2,'success');
@@ -1143,12 +1619,15 @@ const Device= React.createClass({
     PubSub.subscribe(PageName+"Add",this.fetchAdd);
     // 订阅 删除 的事件
     PubSub.subscribe(PageName+"Delete",this.fetchDelete);
+
+    PubSub.subscribe(PageName+"PeiZhiService",this.handleService);
   },
   componentWillUnmount(){
     //退订事件
     PubSub.unsubscribe(PageName+'Edit');
     PubSub.unsubscribe(PageName+'Add');
     PubSub.unsubscribe(PageName+'Delete');
+    PubSub.unsubscribe(PageName+"PeiZhiService");
   },
   filterDisplay(){
     this.setState({
@@ -1182,7 +1661,25 @@ const Device= React.createClass({
       current:1
     });
   },
+  handleService(evtName,data){
+    PubSub.unsubscribe(PageName+'Edit');
+    PubSub.unsubscribe(PageName+'Add');
+    PubSub.unsubscribe(PageName+'Delete');
+    PubSub.unsubscribe(PageName+"PeiZhiService");
+    this.setState({
+      Service:{
+        visible:true,
+        params:data
+      }
+    });
+  },
   render() {
+
+    if(this.state.Service.visible==true){
+      return (<Service {...this.state.Service.params}/>)
+    }
+
+
     const FilterLayerContent= (
       <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
     );
@@ -1192,7 +1689,7 @@ const Device= React.createClass({
         <Col span="4"><SearchInput placeholder="输入设备名搜索" onSearch={this.fetchList} /> </Col>
         <Col span="2" style={{marginLeft:-10}}>
           <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
-              <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
+               <Button type="primary" htmlType="submit" className="gaojibtn el-display-none" >高级搜索</Button> 
           </Popover>
         </Col>
         <Col span="1" style={{marginLeft:-20}}>

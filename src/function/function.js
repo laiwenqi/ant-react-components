@@ -74,12 +74,25 @@ const commonFunction={
   insert_flg(str,flg,sn){
     str=String(str);
     let newstr="";
+    let f=0;
     for(let i=0;i<str.length;i+=sn){
         let tmp=str.substring(i, i+sn);
-        newstr+=tmp+flg;
+        if(f==0){
+          newstr+=tmp+flg;
+        }else{
+          newstr+=tmp;
+        }
+        f++;
     }
     return newstr;
+  },
+  strLengthLimit(str,length){
+    if (str.length > length) {
+      str = str.substr(0, length) + "...";
+    }
+    return str;
   }
+
 };
 
 export default commonFunction;

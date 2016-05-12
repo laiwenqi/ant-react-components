@@ -1003,16 +1003,27 @@ const Employee= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        const pagination = this.state.pagination;
-        pagination.total = result.data.O_T_EMPLOYEE.count;
-        pagination.current = result.data.O_T_EMPLOYEE.currentPage;
-        organization=result.data.O_T_ORGANIZATION;
-        role=result.data.O_T_ROLE;
-        this.setState({
-          loading: false,
-          data: result.data.O_T_EMPLOYEE.data,
-          pagination,
-        });
+        if(result.data.ERROR==0 ){
+          const pagination = this.state.pagination;
+          pagination.total = result.data.O_T_EMPLOYEE.count;
+          pagination.current = result.data.O_T_EMPLOYEE.currentPage;
+          organization=result.data.O_T_ORGANIZATION;
+          role=result.data.O_T_ROLE;
+          this.setState({
+            loading: false,
+            data: result.data.O_T_EMPLOYEE.data,
+            pagination,
+          });
+
+        }else{
+          this.setState({
+            loading: false,
+            data: ''
+          });
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+        }
+
+
       },
       error:()=>{
         commonFunction.MessageTip('获取数据失败',2,'error');

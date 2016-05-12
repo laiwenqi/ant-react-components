@@ -279,6 +279,13 @@ const DevLog= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         const pagination = this.state.pagination;
         pagination.total = result.data.O_DEVLOG.count;
         pagination.current = result.data.O_DEVLOG.currentPage;

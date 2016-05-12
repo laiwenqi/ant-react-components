@@ -1,33 +1,42 @@
 import React from 'react';
 import reqwest from 'reqwest';
 import PubSub from 'pubsub-js';
-import { Transfer,DatePicker,Row,Col,Form,Checkbox,Table,Modal,InputNumber,Input,Popconfirm,Icon, Button,Dropdown,Popover,Select,Tabs } from 'antd';
+import { Switch,QueueAnim,Breadcrumb,InputNumber,Select,Row,Col,Form,Checkbox,Table,Modal,Input,Popconfirm,Icon,Button,Popover } from 'antd';
 import classNames from 'classnames';
 import web_config from '../function/config.js';
 import commonFunction from '../function/function.js';
+import Device from '../web/device.jsx';
 const FormItem = Form.Item;
 const createForm = Form.create;
 const InputGroup = Input.Group;
 const confirm = Modal.confirm;
+const Option = Select.Option;
 
 //页面名称
-const PageName='role';
+const PageName='DevicePeiZhiService'+Date.parse(new Date());
 
-//权限
-let rolePower;
+
+let DEV_ID;
+
+
+//定义 配置服务
+let service=[];
+//定义 商家支付方
+let merchantPayer=[];
 
 //指定表格每列内容
-const columns = [
- //  {
- //  title: '角色序号',
- //  dataIndex: 'ROLE_ID'
- // },
-{
-  title: '角色名称',
-  dataIndex: 'ROLE_NAME'
+const columns = [{
+  title: '服务类型',
+  dataIndex: 'TMSV_NAME'
+}, {
+  title: '商家或支付方',
+  dataIndex: 'MHPY_FULL_NAME'
+}, {
+  title: '外部编码',
+  dataIndex: 'TASV_OTHER_CODE'
 },{
-  title: '角色描述',
-  dataIndex: 'ROLE_INFO'
+  title: '描述',
+  dataIndex: 'TASV_DESC'
 },{
   title: '操作',
   key: 'operation',
@@ -38,6 +47,7 @@ const columns = [
       );
     }
 }];
+
 
 
 
@@ -140,9 +150,9 @@ let FilterLayer = React.createClass({
   render() {
     const { getFieldProps } = this.props.form;
     return (
-      <Form  inline onSubmit={this.handleSubmit} >
+        <Form inline  onSubmit={this.handleSubmit} >
 
-      </Form>
+        </Form>
     );
   }
 });
@@ -163,6 +173,9 @@ let ModalContent =React.createClass({
       contentV:this.props.contentValue
     }
   },
+  componentDidMount() {
+
+  },
   componentWillReceiveProps(){
     //每次打开还原表单的值
     if(this.props.visible==false){
@@ -173,7 +186,7 @@ let ModalContent =React.createClass({
     e.preventDefault();
     this.props.form.validateFieldsAndScroll((errors, values) => {
       if (!!errors) {
-        console.log('表单没通过验证');
+        console.log(errors);
         return;
       }
         /*判断弹窗表单值是否有改变，没有就不发布更新*/
@@ -191,7 +204,8 @@ let ModalContent =React.createClass({
          this.handleCancel();
          return;
        }
-      let params=commonFunction.objExtend({ROLE_ID:this.state.nochangecontentV.ROLE_ID},values);
+
+      let params=commonFunction.objExtend({DEV_ID:DEV_ID},values);
       //发布 编辑 事件
       this.state.loading=true;
       this.props.modalClose();
@@ -201,6 +215,8 @@ let ModalContent =React.createClass({
   handleCancel() {
     this.props.modalClose();
   },
+
+
   getValidateStatus(field) {
    const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
    if (isFieldValidating(field)) {
@@ -211,64 +227,58 @@ let ModalContent =React.createClass({
      return 'success';
    }
  },
- checkRoleName(rule, value, callback){
-   //对比，如果和原来的值一样就不做校验了
-   if(this.state.nochangecontentV.ROLE_NAME==value){
-     callback();
-     return;
-   }
-   if( value.trim() ==''){
-       callback();
-   }else {
-     reqwest({
-       url:web_config.http_request_domain+'/proc/role/checkrolename',
-       method: 'POST',
-       timeout :web_config.http_request_timeout,
-       data:{
-         ROLE_NAME:value.trim()
-       },
-       crossOrigin:web_config.http_request_cross, //跨域
-       type: "json",
-       success: (result) => {
-         if(result.data.exist==1){
-           /*加延时防止闪烁*/
-           setTimeout(() => { callback(new Error('角色名称已存在'))}, 800);
-         }else{
-           setTimeout(() => {callback()}, 800);
-         }
-       },
-       error:() => {
-         setTimeout(() => {callback()}, 800);
-         callback(new Error('角色名称校验失败'));
-       }
-     });
-   }
- },
   render() {
+    const serviceList=service.map(function(item){
+      return (<Option value={String(item.TMSV_ID)} >{item.TMSV_NAME}</Option>)
+    });
+    const merchantPayerList=merchantPayer.map(function(item){
+      return (<Option value={String(item.MHPY_ID)} >{item.MHPY_FULL_NAME}</Option>)
+    });
+
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
-       <Form horizontal form={this.props.form}>
-      <FormItem
-        label="角色名称："
-        labelCol={{ span: 6 }}
-        wrapperCol={{ span: 12 }}
-        help={isFieldValidating('ROLE_NAME') ? '校验中...' : (getFieldError('ROLE_NAME') || []).join(', ')}>
-      <Input placeholder="请输入角色名称" {...getFieldProps('ROLE_NAME',{
-          rules: [{ max: 64, message: '角色名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入角色名称' },{validator: this.checkRoleName}],
-          initialValue:this.state.contentV.ROLE_NAME
-      })} style={{ width: 303 }}/>
-      </FormItem>
-      <FormItem
-        id="control-textarea"
-        label="角色描述："
-        labelCol={{ span: 6 }}
-        wrapperCol={{ span: 14 }}>
-        <Input type="textarea" rows="5" {...getFieldProps('ROLE_INFO',{
-            rules: [{max: 128, message: '角色描述至多为 128 个字符'}],
-            initialValue:this.state.contentV.ROLE_INFO
-        })}   style={{ width: 620 }}/>
-      </FormItem>
+       <Form inline form={this.props.form}>
+       <FormItem
+            label="服务类型： "
+            labelCol={{ span: 8 }}
+            wrapperCol={{ span:15 }}>
+            <Select id="select" size="large" placeholder="请选择服务类型" {...getFieldProps('TMSV_ID',{
+                rules: [{ required: true, message: '请选择服务类型' }],
+                initialValue:String(this.state.contentV.TMSV_ID)
+            })} style={{ width: 163 }}>
+            {serviceList}
+            </Select>
+       </FormItem>
+       <FormItem
+            label="商家或支付方： "
+            labelCol={{ span: 11 }}
+            wrapperCol={{ span:12 }}>
+            <Select id="select" size="large" placeholder="请选择商家或支付方" {...getFieldProps('MHPY_ID',{
+                rules: [{ required: true, message: '请选择商家或支付方' }],
+                  initialValue:String(this.state.contentV.MHPY_ID)
+            })} style={{ width: 153 }}>
+            {merchantPayerList}
+            </Select>
+       </FormItem>
+       <FormItem label="外部编码："
+                 labelCol={{ span: 8 }}
+                 wrapperCol={{ span: 12 }}>
+         <Input placeholder="请填写外部编码" {...getFieldProps('TASV_OTHER_CODE',{
+             rules: [{ required: true,whitespace:true, message: '请填写外部编码' },{max: 128, message: '默认值至多为 128 个字符'}],
+               initialValue:String(this.state.contentV.TASV_OTHER_CODE)
+         })}   style={{ width: 163 }}/>
+       </FormItem>
+       <FormItem
+         id="control-textarea"
+         label="服务描述："
+         labelCol={{ span: 3 }}
+         wrapperCol={{ span: 14 }}>
+         <Input type="textarea" rows="5" {...getFieldProps('TASV_DESC',{
+             rules: [{max: 128, message: '服务描述至多为 128 个字符'}],
+                initialValue:String(this.state.contentV.TASV_DESC)
+         })}   style={{ width: 620 }}/>
+       </FormItem>
        <div className="ant-modal-footer FormItem-modal-footer">
             <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
             <Button type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
@@ -281,117 +291,13 @@ ModalContent = Form.create()(ModalContent);
 
 
 
-//点击权限编辑 弹窗内容
-let PowerModalContent =React.createClass({
-  getInitialState() {
-    return {
-      loading:false,//确定按钮状态
-      nochangecontentV:this.props.contentValue,//这个用来对比是不是和原来的值一样，暂时用这个办法
-      contentV:this.props.contentValue,
-      targetKeys:this.props.contentValue.power,
-      mockData:rolePower
-    }
-  },
-  componentWillReceiveProps(){
-    //每次打开还原表单的值
-    if(this.props.visible==false){
-      this.props.form.resetFields();
-    }
-  },
-  handleSubmit(e) {
-    e.preventDefault();
-    this.props.form.validateFieldsAndScroll((errors, values) => {
-      if (!!errors) {
-        console.log('表单没通过验证');
-        return;
-      }
-        /*判断弹窗表单值是否有改变，没有就不发布更新*/
-       /*！！两个对象长度不等可能会导致不正确判断*/
-      //  let aProps = this.state.targetKeys;
-      //  let bProps = this.state.nochangecontentV.power;
-      //  let hasChanged=0; /*0表示没有改变*/
-       //
-      //  for (let i = 0; i < aProps.length; i++) {
-       //
-      //  }
-      //  if(hasChanged==0){
-      //    this.handleCancel();
-      //    return;
-      //  }
-
-      let params=commonFunction.objExtend({ROLE_NAME:this.state.nochangecontentV.ROLE_NAME,ROLE_ID:this.state.nochangecontentV.ROLE_ID,POWER_LIST:JSON.stringify(this.state.targetKeys)},values);
-      //发布 权限配置 事件
-      this.state.loading=true;
-      this.props.modalClose();
-      PubSub.publish(PageName+"PowerEdit",params);
-    });
-  },
-  handleCancel() {
-    this.props.modalClose();
-  },
-  getValidateStatus(field) {
-   const { isFieldValidating, getFieldError, getFieldValue } = this.props.form;
-   if (isFieldValidating(field)) {
-     return 'validating';
-   } else if (!!getFieldError(field)) {
-     return 'error';
-   } else if (getFieldValue(field)) {
-     return 'success';
-   }
- },
- handleChange(targetKeys, direction, moveKeys) {
-    this.setState({ targetKeys });
-  },
-  render() {
-     const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
-     return (
-       /*表单下拉组件 的 value 一定要全等，才能正确显示*/
-       <Form horizontal form={this.props.form}>
-        <FormItem style={{marginLeft:80}}>
-          <Transfer
-            titles={['禁用权限','可用权限']}
-            dataSource={this.state.mockData}
-            targetKeys={this.state.targetKeys}
-            notFoundContent="暂无"
-            render={item => item.title}
-            listStyle={{
-                width: 250,
-                height: 300,
-            }}
-            {...getFieldProps('ROLE_POWER',{
-              onChange:this.handleChange
-            })}/>
-        </FormItem>
-        <hr className="hr"/>
-       <div style={{marginLeft:500}} >
-            <Button type="ghost" className="ant-btn ant-btn-ghost ant-btn-lg" onClick={this.handleCancel} >取消</Button>
-            <Button style={{marginLeft:20}} type="primary" className="ant-btn ant-btn-primary ant-btn-lg" onClick={this.handleSubmit} loading={this.state.loading}>确定</Button>
-        </div>
-       </Form>
-     )
-   }
-});
-PowerModalContent = Form.create()(PowerModalContent);
-
-
 //表格操作栏
 const Edit = React.createClass({
   getInitialState() {
     return {
       loading: false,
-      visible: false,
-      pvisible: false
+      visible: false
     };
-  },
-  showPowerModal() {
-    this.setState({
-      pvisible: true
-    });
-  },
-  handlePowerCancel() {
-    this.setState({
-      pvisible: false
-    });
   },
   showModal() {
     this.setState({
@@ -405,11 +311,11 @@ const Edit = React.createClass({
   },
   handleDelete() {
     let DELETE_PARAMS={
-      ROLE_ID:this.props.ROLE_ID, //需要删除的人员ID
-      ROLE_NAME:this.props.ROLE_NAME //需要删除的人员名字
+      DEV_ID:DEV_ID,
+      id:this.props.id
     };
     confirm({
-      title: '您是否确认要删除'+DELETE_PARAMS.ROLE_NAME,
+      title: '您是否确认要删除这条服务配置',
       content: '',
       onOk() {
         //发布 删除 事件
@@ -421,27 +327,13 @@ const Edit = React.createClass({
   render() {
     return (
       <div>
-        <a type="primary" onClick={this.showPowerModal} {...this.props}>配置权限</a>
-          <span className="ant-divider"></span>
-        <a type="primary" onClick={this.showModal} {...this.props}>修改</a>
+        <a type="primary" onClick={this.showModal} {...this.props}>修改/查看</a>
           <span className="ant-divider"></span>
         <a type="primary" onClick={this.handleDelete}>删除</a>
         <Modal ref="modal"
-          width="700"
-          visible={this.state.pvisible}
-          title={'配置权限-'+this.props.ROLE_NAME}
-          onCancel={this.handlePowerCancel}
-          footer={null} >
-          <PowerModalContent
-            modalClose={this.handlePowerCancel} //传递取消事件
-            contentValue={this.props}  //传递表单的值
-            visible={this.state.pvisible}
-            />
-        </Modal>
-        <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title={'修改-'+this.props.ROLE_NAME}
+          title={'修改-'+this.props.DTPR_NAME}
           onCancel={this.handleCancel}
           footer={null} >
           <ModalContent
@@ -477,14 +369,15 @@ const NewAdd= React.createClass({
   render() {
     return (
       <div>
-        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加角色<Icon type="plus-square" /></Button>
+        <Button type="primary" onClick={this.showModal} className="table-add-btn">添加服务配置<Icon type="plus-square" /></Button>
         <Modal ref="modal"
           width="550"
           visible={this.state.visible}
-          title="添加角色"
+          title="添加服务配置"
           onCancel={this.handleCancel}
           footer={null}>
           <NewAddModalContent
+            {...this.props}
             visible={this.state.visible}
             modalClose={this.handleCancel}
           />
@@ -498,6 +391,7 @@ const NewAdd= React.createClass({
 let NewAddModalContent =React.createClass({
   getInitialState() {
     return {
+
     }
   },
   componentWillReceiveProps(){
@@ -514,6 +408,9 @@ let NewAddModalContent =React.createClass({
         return;
       }
       let params=values;
+
+      params=commonFunction.objExtend({DEV_ID:DEV_ID},params);
+
       //发布 新增 事件
       PubSub.publish(PageName+"Add",params);
       this.props.modalClose();
@@ -522,55 +419,52 @@ let NewAddModalContent =React.createClass({
   handleCancel(){
     this.props.modalClose();
   },
-  checkRoleName(rule, value, callback){
-    if( value.trim() ==''){
-        callback();
-    }else {
-      reqwest({
-        url:web_config.http_request_domain+'/proc/role/checkrolename',
-        method: 'POST',
-        timeout :web_config.http_request_timeout,
-        data:{
-          ROLE_NAME:value.trim()
-        },
-        crossOrigin:web_config.http_request_cross, //跨域
-        type: "json",
-        success: (result) => {
-          if(result.data.exist==1){
-            /*加延时防止闪烁*/
-            setTimeout(() => { callback(new Error('角色名称已存在'))}, 800);
-          }else{
-            setTimeout(() => {callback()}, 800);
-          }
-        },
-        error:() => {
-          setTimeout(() => {callback()}, 800);
-          callback(new Error('角色名称校验失败'));
-        }
-      });
-    }
-  },
   render() {
+    const serviceList=service.map(function(item){
+      return (<Option value={String(item.TMSV_ID)} >{item.TMSV_NAME}</Option>)
+    });
+    const merchantPayerList=merchantPayer.map(function(item){
+      return (<Option value={String(item.MHPY_ID)} >{item.MHPY_FULL_NAME}</Option>)
+    });
      const { getFieldProps, getFieldError, isFieldValidating } = this.props.form;
      return (
        /*表单下拉组件 的 value 一定要全等，才能正确显示*/
-       <Form horizontal form={this.props.form}>
+       /* 配件下拉 列表 动态加载！*/
+       <Form inline form={this.props.form}>
        <FormItem
-         label="角色名称："
-         labelCol={{ span: 6 }}
-         wrapperCol={{ span: 12 }}
-         help={isFieldValidating('ROLE_NAME') ? '校验中...' : (getFieldError('ROLE_NAME') || []).join(', ')}>
-       <Input placeholder="请输入角色名称" {...getFieldProps('ROLE_NAME',{
-           rules: [{ max: 64, message: '角色名称至多为 64 个字符' },{ required: true,whitespace:true, message: '请输入角色名称' },{validator: this.checkRoleName}]
-       })} style={{ width: 303 }}/>
+            label="服务类型： "
+            labelCol={{ span: 8 }}
+            wrapperCol={{ span:15 }}>
+            <Select id="select" size="large" placeholder="请选择服务类型" {...getFieldProps('TMSV_ID',{
+                rules: [{ required: true, message: '请选择服务类型' }]
+            })} style={{ width: 163 }}>
+            {serviceList}
+            </Select>
+       </FormItem>
+       <FormItem
+            label="商家或支付方： "
+            labelCol={{ span: 11 }}
+            wrapperCol={{ span:12 }}>
+            <Select id="select" size="large" placeholder="请选择商家或支付方" {...getFieldProps('MHPY_ID',{
+                rules: [{ required: true, message: '请选择商家或支付方' }]
+            })} style={{ width: 153 }}>
+            {merchantPayerList}
+            </Select>
+       </FormItem>
+       <FormItem label="外部编码："
+                 labelCol={{ span: 8 }}
+                 wrapperCol={{ span: 12 }}>
+         <Input placeholder="请填写外部编码" {...getFieldProps('TASV_OTHER_CODE',{
+             rules: [{ required: true,whitespace:true, message: '请填写外部编码' },{max: 128, message: '默认值至多为 128 个字符'}]
+         })}   style={{ width: 163 }}/>
        </FormItem>
        <FormItem
          id="control-textarea"
-         label="角色描述："
-         labelCol={{ span: 6 }}
+         label="服务描述："
+         labelCol={{ span: 3 }}
          wrapperCol={{ span: 14 }}>
-         <Input type="textarea" rows="5" {...getFieldProps('ROLE_INFO',{
-             rules: [{max: 128, message: '角色描述至多为 128 个字符'}]
+         <Input type="textarea" rows="5" {...getFieldProps('TASV_DESC',{
+             rules: [{max: 128, message: '服务描述至多为 128 个字符'}]
          })}   style={{ width: 620 }}/>
        </FormItem>
         <div className="ant-modal-footer FormItem-modal-footer">
@@ -587,27 +481,30 @@ NewAddModalContent = Form.create()(NewAddModalContent);
 
 
 //标签分页里面的整个内容
-const Role= React.createClass({
-   getInitialState() {
-    return {
-      data: [],
-      defaultFilter:{},
-      moreFilter:{},
-      pagination: {
-        pageSize:10, //每页显示数目
-        total:0,//数据总数
-        current:1,//页数
-        size:'large',
-        showTotal:function showTotal(total) {
-            return `共 ${total} 条记录`;
-        },
-        showQuickJumper:true,
-        // showSizeChanger :true
-      },
-      loading: false,
-      gaojisousuoVislble:false
-    };
-  },
+const DeviceFittings= React.createClass({
+    getInitialState() {
+     return {
+       data: [],
+       defaultFilter:{},
+       moreFilter:{},
+       pagination: {
+         pageSize:10, //每页显示数目
+         total:0,//数据总数
+         current:1,//页数
+         size:'large',
+         showTotal:function showTotal(total) {
+             return `共 ${total} 条记录`;
+         },
+         showQuickJumper:true,
+         // showSizeChanger :true
+       },
+       loading: false,
+       gaojisousuoVislble:false,
+       Return:{
+         visible:false
+       }
+     };
+   },
   handleTableChange(pagination, filters, sorter) {
     const pager = this.state.pagination;
     pager.current = pagination.current;
@@ -663,9 +560,10 @@ const Role= React.createClass({
       default:
         params=commonFunction.objExtend(params,this.state.pagination);
     }
+    params=commonFunction.objExtend(params,this.props);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/role/list',
+      url:web_config.http_request_domain+'/proc/device/servicelist',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:params,
@@ -680,12 +578,13 @@ const Role= React.createClass({
           return;
         }
         const pagination = this.state.pagination;
-        pagination.total = result.data.O_ROLE.count;
-        pagination.current = result.data.O_ROLE.currentPage;
-        rolePower=result.data.O_ROLE_POWER;
+        pagination.total = result.data.DEVSERVICE.count;
+        pagination.current = result.data.DEVSERVICE.currentPage;
+        service=result.data.SERVICE;
+        merchantPayer=result.data.MERCHANTPAYER;
         this.setState({
           loading: false,
-          data: result.data.O_ROLE.data,
+          data: result.data.DEVSERVICE.data,
           pagination,
         });
       },
@@ -704,19 +603,19 @@ const Role= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/role/update',
+      url:web_config.http_request_domain+'/proc/device/serviceupdate',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:editParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0&&commonFunction.MessageTip('修改服务配置成功',2,'success');
+        result.data.ERROR!=0&&commonFunction.MessageTip('修改服务配置失败，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(editParams.ROLE_NAME+'，编辑失败',2,'error');
+        commonFunction.MessageTip('修改服务配置失败',2,'error');
         this.fetchList(listParams);
       }
     });
@@ -728,70 +627,46 @@ const Role= React.createClass({
     listParams=commonFunction.objExtend(listParams,this.state.pagination);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/role/destroy',
+      url:web_config.http_request_domain+'/proc/device/servicedelete',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:deleteParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.ROLE_NAME+'，删除成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.ROLE_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip('删除服务配置成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip('删除服务配置失败，'+result.data.MSG,2,'error');
         this.fetchList(listParams);
       },
       error:()=>{
-        commonFunction.MessageTip(deleteParams.ROLE_NAME+'，删除失败',2,'error');
+        commonFunction.MessageTip('删除服务配置失败',2,'error');
         this.fetchList(listParams);
       }
     });
   },
   fetchAdd(evtName,data){
-    let addParams=commonFunction.objExtend({},data);
+    let addParams=commonFunction.objExtend(data,this.props);
     this.setState({ loading: true });
     reqwest({
-      url:web_config.http_request_domain+'/proc/role/add',
+      url:web_config.http_request_domain+'/proc/device/serviceadd',
       method: 'POST',
       timeout :web_config.http_request_timeout,
       data:addParams,
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
-        result.data.ERROR==0 && commonFunction.MessageTip(addParams.ROLE_NAME+'，添加成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.ROLE_NAME+'，'+result.data.MSG,2,'error');
+        result.data.ERROR==0 && commonFunction.MessageTip('添加服务配置成功',2,'success');
+        result.data.ERROR!=0 && commonFunction.MessageTip('添加服务配置失败，'+result.data.MSG,2,'error');
         this.fetchList();
       },
       error:()=>{
-        commonFunction.MessageTip(addParams.ROLE_NAME+'，添加失败',2,'error');
+        commonFunction.MessageTip('添加服务配置失败',2,'error');
         this.fetchList();
-      }
-    });
-  },
-  fetchPowerEdit(evtName,data){
-    let editParams=commonFunction.objExtend({},data);
-    let listParams=commonFunction.objExtend({},this.state.defaultFilter);
-    listParams=commonFunction.objExtend(listParams,this.state.moreFilter);
-    listParams=commonFunction.objExtend(listParams,this.state.pagination);
-    this.setState({ loading: true });
-    reqwest({
-      url:web_config.http_request_domain+'/proc/role/powerupdate',
-      method: 'POST',
-      timeout :web_config.http_request_timeout,
-      data:editParams,
-      crossOrigin: web_config.http_request_cross, //跨域
-      type: "json",
-      success: (result) => {
-        result.data.ERROR==0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，配置权限成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.ROLE_NAME+'，'+result.data.MSG,2,'error');
-        //window.location.href="/";
-        this.fetchList(listParams);
-      },
-      error:()=>{
-        commonFunction.MessageTip(editParams.ROLE_NAME+'，配置权限失败',2,'error');
-        this.fetchList(listParams);
       }
     });
   },
   componentDidMount() {
+    DEV_ID=this.props.DEV_ID;
     this.fetchList();
     // 订阅 编辑 的事件
     PubSub.subscribe(PageName+"Edit",this.fetchEdit);
@@ -799,15 +674,12 @@ const Role= React.createClass({
     PubSub.subscribe(PageName+"Add",this.fetchAdd);
     // 订阅 删除 的事件
     PubSub.subscribe(PageName+"Delete",this.fetchDelete);
-    // 订阅 配置权限 的事件
-    PubSub.subscribe(PageName+"PowerEdit",this.fetchPowerEdit);
   },
   componentWillUnmount(){
     //退订事件
-    PubSub.unsubscribe(PageName+"Edit");
-    PubSub.unsubscribe(PageName+"Add");
-    PubSub.unsubscribe(PageName+"Delete");
-    PubSub.unsubscribe(PageName+"PowerEdit");
+    PubSub.unsubscribe(PageName+'Edit');
+    PubSub.unsubscribe(PageName+'Add');
+    PubSub.unsubscribe(PageName+'Delete');
   },
   filterDisplay(){
     this.setState({
@@ -841,34 +713,50 @@ const Role= React.createClass({
       current:1
     });
   },
+  handleRetrun(){
+    /* 暂时在这里退订，但是组件还没有销毁 */
+    PubSub.unsubscribe(PageName+'Edit');
+    PubSub.unsubscribe(PageName+'Add');
+    PubSub.unsubscribe(PageName+'Delete');
+
+    this.setState({
+      Return:{
+        visible:true
+      }
+    });
+  },
   render() {
+    if(this.state.Return.visible==true){
+      return (
+        <Device/>
+      );
+    }
     const FilterLayerContent= (
       <FilterLayer search={this.fetchList} fliterhide={this.filterDisplay}/>
     );
     return (
-    <div>
-     <Row>
-      <Col span="4"><SearchInput placeholder="输入角色名称搜索" onSearch={this.fetchList} /> </Col>
-      <Col span="2" className="el-display-none" style={{marginLeft:-10}}>
-        <Popover placement="bottom" visible={this.state.gaojisousuoVislble} onVisibleChange={this.fliterDisplayChange} overlay={FilterLayerContent} trigger="click">
-            <Button type="primary" htmlType="submit" className="gaojibtn" >高级搜索</Button>
-        </Popover>
-      </Col>
-      <Col span="1" style={{marginLeft:-20}}>
-        <Button type="primary" htmlType="submit" onClick={this.resetSearch} >重置</Button>
-      </Col>
-          <Col span="12" className="table-add-layer"><NewAdd/></Col>
-     </Row>
+      <div>
+      <QueueAnim duration={[700,700]}>
+      <div key="div1">
+           <Row>
+            <Col span="5"><span className="peizhicanshu-title"> {this.props.DEV_NAME}  - 服务配置列表</span></Col>
+            <Col span="3"><div onClick={this.handleRetrun} className="tip-button"><span className="icon-toinstlist"></span>返回终端管理列表</div></Col>
+            <Col span="12" className="table-add-layer"><NewAdd {...this.props} /></Col>
+           </Row>
+       </div>
         <div className="margin-top-10"></div>
-        <Table columns={columns}
-            dataSource={this.state.data}
-            pagination={this.state.pagination}
-            loading={this.state.loading}
-            onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
-            size="middle"
-            rowKey={record => record.ROLE_ID} /*指定每行的主键 不指定默认key*/
-            bordered={true}
-        />
+        <div key="div2">
+            <Table columns={columns}
+                dataSource={this.state.data}
+                pagination={this.state.pagination}
+                loading={this.state.loading}
+                onChange={this.handleTableChange} /*翻页 筛选 排序都会触发 onchange*/
+                size="middle"
+                rowKey={record => record.DTPR_NAME} /*指定每行的主键 不指定默认key*/
+                bordered={true}
+            />
+        </div>
+        </QueueAnim>
    </div>
     );
   }
@@ -876,4 +764,4 @@ const Role= React.createClass({
 
 
 
-export default Role;
+export default DeviceFittings;

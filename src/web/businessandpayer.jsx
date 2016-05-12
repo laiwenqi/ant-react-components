@@ -739,6 +739,13 @@ const BusinessAndPayer= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         const pagination = this.state.pagination;
         pagination.total = result.data.O_T_BUSINESSANDPAYER.count;
         pagination.current = result.data.O_T_BUSINESSANDPAYER.currentPage;
@@ -770,8 +777,15 @@ const BusinessAndPayer= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         result.data.ERROR==0&&commonFunction.MessageTip(editParams.MHPY_FULL_NAME+'，编辑成功',2,'success');
-        result.data.ERROR!=0&&commonFunction.MessageTip(editParams.MHPY_FULL_NAME+'，'+result.data.MSG,2,'error');
+
         this.fetchList(listParams);
       },
       error:()=>{
@@ -794,8 +808,15 @@ const BusinessAndPayer= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         result.data.ERROR==0 && commonFunction.MessageTip(deleteParams.MHPY_FULL_NAME+'，删除成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(deleteParams.MHPY_FULL_NAME+'，'+result.data.MSG,2,'error');
+
         this.fetchList(listParams);
       },
       error:()=>{
@@ -815,8 +836,15 @@ const BusinessAndPayer= React.createClass({
       crossOrigin: web_config.http_request_cross, //跨域
       type: "json",
       success: (result) => {
+        if(result.data.ERROR!=0){
+          commonFunction.MessageTip(result.data.MSG,2,'error');
+          this.setState({
+            loading: false
+          });
+          return;
+        }
         result.data.ERROR==0 && commonFunction.MessageTip(addParams.MHPY_FULL_NAME+'，添加成功',2,'success');
-        result.data.ERROR!=0 && commonFunction.MessageTip(addParams.MHPY_FULL_NAME+'，'+result.data.MSG,2,'error');
+
         this.fetchList();
       },
       error:()=>{
